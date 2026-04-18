@@ -2,14 +2,15 @@ import type { Node, Edge } from '@xyflow/react';
 
 export interface BaseNodeData extends Record<string, unknown> {
     label: string;
+    type: string;
 }
 
 export interface HouseNodeData extends BaseNodeData {
-    type?: 'house';
+    type: 'house';
     connectedHeaters: AppNode[];
 }
 export interface HeatSourceNodeData extends BaseNodeData {
-    type?: 'heat';
+    type: 'heat';
     capacity?: number;
 }
 
@@ -39,4 +40,3 @@ export const isHeatNode = (node: AppNode): node is Node<HeatSourceNodeData> => {
         (!('connectedHeaters' in node.data) && node.type !== 'house')
     );
 };
-

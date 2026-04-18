@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useEffect, type ReactElement } from 'react';
 import '@xyflow/react/dist/style.css';
+import React, { useState, useCallback, useEffect, type ReactElement } from 'react';
 
 interface SidebarProps {
     width: number;

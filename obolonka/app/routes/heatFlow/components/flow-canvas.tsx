@@ -12,8 +12,9 @@ import {
     MarkerType,
     type ReactFlowInstance,
 } from '@xyflow/react';
-import type { ConnectionStats, AppNode } from './types';
-import { nodeTypes } from './nodes';
+import { ConfigForm } from './forms';
+import type { ConnectionStats, AppNode, NodeData } from './types';
+import { createNodeData, nodeTypes } from './nodes';
 
 interface FlowCanvasProps {
     sidebarWidth: number;
@@ -21,6 +22,8 @@ interface FlowCanvasProps {
 
 export function FlowCanvas({ sidebarWidth }: FlowCanvasProps): React.ReactElement {
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
+
+    const [selectedNode, setSelectedNode] = useState<AppNode | null>(null);
 
     const [nodes, setNodes, onNodesChange] = useNodesState<AppNode>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -115,16 +118,34 @@ export function FlowCanvas({ sidebarWidth }: FlowCanvasProps): React.ReactElemen
                 id: `${type}-${Date.now()}`,
                 type,
                 position,
-                data: {
-                    label: `${type === 'house' ? 'Будинок' : 'Тепло'} ${nodes.length + 1}`,
-                    connectedHeaters: type === 'house' ? [] : undefined,
-                },
+                data: createNodeData(type, nodes.length + 1),
             };
 
             setNodes((nds) => [...nds, newNode]);
         },
         [reactFlowInstance, nodes.length, setNodes]
     );
+
+    const onNodeClick = (_: React.MouseEvent, node: AppNode) => {
+        setSelectedNode(node);
+    };
+
+    const updateNodeData = useCallback((nodeId: string, newData: Partial<NodeData>) => {
+        setNodes((nds) =>
+            nds.map((node) => {
+                if (node.id === nodeId) {
+                    return {
+                        ...node,
+                        data: {
+                            ...node.data,
+                            ...newData
+                        } as NodeData
+                    };
+                }
+                return node;
+            })
+        );
+    }, [setNodes]);
 
     const getConnectionStats = useCallback((): ConnectionStats => {
         const houses = nodes.filter((n) => n.type === 'house');
@@ -152,38 +173,38 @@ export function FlowCanvas({ sidebarWidth }: FlowCanvasProps): React.ReactElemen
             width: '100%',
             overflow: 'hidden'
         }}>
-            <div className="flex flex-wrap items-center justify-center gap-y-4 gap-x-12
-            p-6 bg-white border-b border-gray-200 shadow-md shrink-0 ">
+            <div className="flex flex-wrap items-center justify-center gap-x-8
+            px-3 py-2 bg-white border-b border-gray-200 shadow-md shrink-0">
                 {/* Статистика будинків */}
                 <div className="flex items-center gap-3 group whitespace-nowrap">
                     <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
                     <span className="text-gray-500 uppercase text-[11px] tracking-wider">Houses</span>
-                    <span className="font-bold text-gray-900 text-base">{stats.totalHouses}</span>
+                    <span className="font-medium text-gray-900 text-base">{stats.totalHouses}</span>
                 </div>
 
                 {/* Статистика джерел тепла */}
                 <div className="flex items-center gap-3 group whitespace-nowrap">
                     <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
                     <span className="text-gray-500 uppercase text-[11px] tracking-wider">Heat Sources</span>
-                    <span className="font-bold text-gray-900 text-base">{stats.totalHeaters}</span>
+                    <span className="font-medium text-gray-900 text-base">{stats.totalHeaters}</span>
                 </div>
 
                 {/* Статистика з'єднань */}
                 <div className="flex items-center gap-3 group whitespace-nowrap">
                     <div className="w-2.5 h-2.5 rounded-full bg-gray-400" />
                     <span className="text-gray-500 uppercase text-[11px] tracking-wider">Connections</span>
-                    <span className="font-bold text-gray-900 text-base">{stats.totalConnections}</span>
+                    <span className="font-medium text-gray-900 text-base">{stats.totalConnections}</span>
                 </div>
 
                 {/* Прогрес підключення */}
-                <div className="flex items-center gap-4 bg-gray-50 px-5 py-2.5 rounded-xl border border-gray-100 min-w-fit">
+                <div className="flex items-center gap-2 bg-gray-50 px-5 py-1 rounded-xl border border-gray-100 min-w-fit">
                     <span className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Status</span>
                     <div className="flex items-baseline gap-1">
-                        <span className={`text-lg font-black ${stats.connectedHouses === stats.totalHouses ? 'text-green-600' : 'text-blue-600'}`}>
+                        <span className={`text-base font-bold ${stats.connectedHouses === stats.totalHouses ? 'text-green-600' : 'text-blue-600'}`}>
                             {stats.connectedHouses}
                         </span>
-                        <span className="text-gray-300">/</span>
-                        <span className="text-gray-500">{stats.totalHouses}</span>
+                        <span className="text-base text-gray-300">/</span>
+                        <span className="text-base text-gray-500">{stats.totalHouses}</span>
                     </div>
 
                     <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -208,6 +229,7 @@ export function FlowCanvas({ sidebarWidth }: FlowCanvasProps): React.ReactElemen
                     nodes={nodes}
                     edges={edges}
                     onNodesChange={onNodesChange}
+                    onNodeClick={onNodeClick}
                     onEdgesChange={onEdgesChange}
                     onConnect={onConnect}
                     onEdgesDelete={onEdgesDelete}
@@ -231,6 +253,15 @@ export function FlowCanvas({ sidebarWidth }: FlowCanvasProps): React.ReactElemen
                     <Background />
                     <Controls />
                 </ReactFlow>
+
+                {/* Відображаємо форму, якщо обрано ноду */}
+                {selectedNode && (
+                    <ConfigForm
+                        node={selectedNode}
+                        onUpdate={updateNodeData}
+                        onClose={() => setSelectedNode(null)}
+                    />
+                )}
             </div>
         </div>
     );

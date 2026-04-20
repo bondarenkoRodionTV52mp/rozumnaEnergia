@@ -204,38 +204,37 @@ export function FlowCanvas({ sidebarWidth }: FlowCanvasProps): React.ReactElemen
             width: '100%',
             overflow: 'hidden'
         }}>
-            <div className="flex flex-wrap items-center justify-center gap-x-8
-            px-3 py-2 bg-white border-b border-gray-200 shadow-md shrink-0">
+            <div className="flex flex-wrap items-center justify-center gap-x-8 px-3 py-2 bg-white border-b border-gray-200 shadow-md shrink-0 select-none cursor-default">
                 {/* Статистика будинків */}
-                <div className="flex items-center gap-3 group whitespace-nowrap">
+                <div className="flex items-center gap-3 group whitespace-nowrap select-none">
                     <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                    <span className="text-gray-500 uppercase text-[11px] tracking-wider">Houses</span>
-                    <span className="font-medium text-gray-900 text-base">{stats.totalHouses}</span>
+                    <span className="text-gray-500 uppercase text-[11px] tracking-wider select-none">Houses</span>
+                    <span className="font-medium text-gray-900 text-base select-none">{stats.totalHouses}</span>
                 </div>
 
                 {/* Статистика джерел тепла */}
-                <div className="flex items-center gap-3 group whitespace-nowrap">
+                <div className="flex items-center gap-3 group whitespace-nowrap select-none">
                     <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
-                    <span className="text-gray-500 uppercase text-[11px] tracking-wider">Heat Sources</span>
-                    <span className="font-medium text-gray-900 text-base">{stats.totalHeaters}</span>
+                    <span className="text-gray-500 uppercase text-[11px] tracking-wider select-none">Heat Sources</span>
+                    <span className="font-medium text-gray-900 text-base select-none">{stats.totalHeaters}</span>
                 </div>
 
                 {/* Статистика з'єднань */}
-                <div className="flex items-center gap-3 group whitespace-nowrap">
+                <div className="flex items-center gap-3 group whitespace-nowrap select-none">
                     <div className="w-2.5 h-2.5 rounded-full bg-gray-400" />
-                    <span className="text-gray-500 uppercase text-[11px] tracking-wider">Connections</span>
-                    <span className="font-medium text-gray-900 text-base">{stats.totalConnections}</span>
+                    <span className="text-gray-500 uppercase text-[11px] tracking-wider select-none">Connections</span>
+                    <span className="font-medium text-gray-900 text-base select-none">{stats.totalConnections}</span>
                 </div>
 
                 {/* Прогрес підключення */}
-                <div className="flex items-center gap-2 bg-gray-50 px-5 py-1 rounded-xl border border-gray-100 min-w-fit">
-                    <span className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Status</span>
-                    <div className="flex items-baseline gap-1">
-                        <span className={`text-base font-bold ${stats.connectedHouses === stats.totalHouses ? 'text-green-600' : 'text-blue-600'}`}>
+                <div className="flex items-center gap-2 bg-gray-50 px-5 py-1 rounded-xl border border-gray-100 min-w-fit select-none cursor-default">
+                    <span className="text-[10px] uppercase tracking-widest text-gray-400 font-bold select-none">Status</span>
+                    <div className="flex items-baseline gap-1 select-none">
+                        <span className={`text-base font-bold ${stats.connectedHouses === stats.totalHouses ? 'text-green-600' : 'text-blue-600'} select-none`}>
                             {stats.connectedHouses}
                         </span>
-                        <span className="text-base text-gray-300">/</span>
-                        <span className="text-base text-gray-500">{stats.totalHouses}</span>
+                        <span className="text-base text-gray-300 select-none">/</span>
+                        <span className="text-base text-gray-500 select-none">{stats.totalHouses}</span>
                     </div>
 
                     <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">

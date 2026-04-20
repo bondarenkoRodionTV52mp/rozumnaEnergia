@@ -42,13 +42,14 @@ export function HouseNode({ id, data, selected }: NodeProps): ReactElement {
                     </span>
                 </div>
 
-                <div className="text-sm font-bold text-gray-800 tracking-tight">
+                <div className="text-sm font-bold text-gray-800">
                     {label}
                 </div>
             </div>
 
             {connectedHeaters.length > 0 && (
-                <div className="pt-1 border-t border-gray-50 text-[10px] text-gray-500 italic leading-tight">
+                // ВИДАЛИТИ ЦЕЙ РЯДОК З border-t
+                <div className="pt-1 text-[10px] text-gray-500 italic leading-tight">
                     <span className="font-semibold not-italic">Sources:</span> {connectedLabels.join(', ')}
                 </div>
             )}

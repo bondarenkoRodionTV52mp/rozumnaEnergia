@@ -67,7 +67,7 @@ export function Sidebar({ width, setWidth }: SidebarProps): ReactElement {
                 willChange: 'width'
             }}
         >
-            <div className="px-5 py-6 flex items-center gap-2">
+            <div className="px-5 py-6 flex items-center gap-2 select-none pointer-events-none">
                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                 <h2 className="text-[11px] font-black uppercase tracking-[1.5px] text-slate-400">
                     Node Library

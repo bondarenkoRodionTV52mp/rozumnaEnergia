@@ -13,10 +13,10 @@ import {
     MarkerType,
     type ReactFlowInstance,
 } from '@xyflow/react';
-import type { ConnectionStats, AppNode, NodeData } from './types';
+import type { ConnectionStats, AppNode, NodeData } from '../types/types';
 import { createNodeData, nodeTypes } from './nodes';
 import { ConfigForm } from './forms';
-import { EdgeHint } from './hints';
+import { SelectionHint } from './hints';
 
 const defaultEdgeOptions = {
     type: 'smoothstep',
@@ -265,7 +265,7 @@ export function FlowCanvas({ sidebarWidth }: FlowCanvasProps): React.ReactElemen
                 >
                     <Background color="#adb8c594" gap={15} size={2} />
 
-                    <EdgeHint />
+                    <SelectionHint />
                     <Controls />
                 </ReactFlow>
 

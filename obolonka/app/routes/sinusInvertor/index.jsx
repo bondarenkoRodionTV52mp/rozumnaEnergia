@@ -1,12 +1,13 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+﻿import { useState, useEffect, useRef, useCallback } from "react";
 
-//  CONFIG 
-// Тільки SinePure 3500: менші моделі не тягнуть повне навантаження (~3130 Вт)
+// ─── CONFIG ────────────────────────────────────────────────────────────────────
+// Залишено лише SinePure 3500 — менші моделі не витримують повне навантаження
+// (макс. ~3130 Вт при всіх увімкнених пристроях)
 const INVERTERS = {
   inv3500: { id:"inv3500", label:"SinePure 3500", max_w:3500, thd_base:0.018, desc:"Чиста синусоїда · 3500 Вт" },
 };
 
-// Тип батареї за замовчуванням
+// Дефолтний тип батареї (використовується до ініціалізації стану)
 const BAT_DEFAULT_ID = "varta_b8";
 const INVERTER_EFF_NOMINAL = 0.92;
 const BAT_SAFE_FLOOR = 0.05;
@@ -18,9 +19,11 @@ const BAT_LIBRARY = {
   varta_b8:    { id:"varta_b8",    label:"ВАРТА В8",       cap:80,  minV:10.8, maxV:12.85, type:"AGM",    desc:"12В · 80 Аг · AGM"   },
   varta_b9:    { id:"varta_b9",    label:"ВАРТА В9",       cap:100, minV:10.8, maxV:12.85, type:"AGM",    desc:"12В · 100 Аг · AGM"  },
   bosch_s5:    { id:"bosch_s5",    label:"Bosch S5 110",   cap:110, minV:10.8, maxV:12.90, type:"AGM",    desc:"12В · 110 Аг · AGM"  },
+  exide_gel80: { id:"exide_gel80", label:"Exide Gel G80",  cap:80,  minV:10.5, maxV:12.80, type:"GEL",    desc:"12В · 80 Аг · GEL"   },
+  lifepo4_100: { id:"lifepo4_100", label:"LiFePO4 100 Аг", cap:100, minV:11.0, maxV:14.60, type:"LiFePO4",desc:"12В · 100 Аг · LFP"  },
 };
 
-// Як підключаємо батареї: паралельно або через АВР
+// Конфігурації акумуляторної підсистеми (резервування для функціональної стійкості)
 const BAT_CONFIGS = {
   parallel: {
     id:"parallel", label:"Паралельне",
@@ -44,14 +47,14 @@ const FAN_MODES = [
   { id:4, label:"Турбо", w:80,  surge:5.8, surgeT:0.9 },
 ];
 
-// baseW — робоча потужність, cycleOn/cycleOff — фази циклу в секундах
+// Пристрої — baseW: робоча потужність, cycleOn/cycleOff: тривалість фаз (с)
 const DEVICES = {
   fan:    { name:"Вентилятор", type:"inductive",  baseW:0,    icon:"fan",    cycleOn:null },
   kettle: { name:"Чайник",     type:"resistive",  baseW:1500, icon:"kettle", cycleOn:300, cycleOff:120 },
   hob:    { name:"Конфорка",   type:"resistive",  baseW:1000, icon:"hob",    cycleOn:480, cycleOff:180 },
   drill:  { name:"Дриль",      type:"nonlinear",  baseW:550,  icon:"drill",  cycleOn:null },
 };
-// 1500 + 1000 + 550 + 80 = 3130 Вт — вкладаємось у 3500
+// Сумарно макс: 1500 + 1000 + 550 + 80 = 3130 Вт → вміщається в SinePure 3500
 
 const ZONES = {
   stable:   { label:"Стабільно",    col:"#16a34a", bg:"#f0fdf4", border:"#86efac" },
@@ -61,7 +64,7 @@ const ZONES = {
 };
 
 // ─── BATTERY VOLTAGE CURVE ─────────────────────────────────────────────────────
-// Крива розряду AGM 12В: спершу швидке падіння, потім плато, в кінці обвал
+// Реальна крива розряду AGM 12В: швидке падіння на початку, плато, різкий обвал у кінці
 function batV(charge, bat) {
   const b = bat ?? BAT_LIBRARY[BAT_DEFAULT_ID];
   const x = Math.max(0, Math.min(1, charge));
@@ -111,7 +114,7 @@ function devPower(key, dev, t) {
     return fm.w * surge;
   }
 
-  // Циклічні пристрої (чайник, конфорка) — пропускаємо фазу паузи
+  // Циклічні пристрої: чайник (терморегулятор), конфорка
   if (cfg.cycleOn !== null) {
     const period = cfg.cycleOn + cfg.cycleOff;
     const phase = dev.cycleT % period;
@@ -120,9 +123,9 @@ function devPower(key, dev, t) {
 
   if (key === "drill") {
     const dt = t - dev.startT;
-    // Пусковий струм щіткового двигуна: ×2.6 на ~0.5с
+    // Реальний пусковий струм щіткового двигуна: 2.6× протягом ~0.5с
     const surge = dt < 0.5 ? 1 + 1.6 * Math.exp(-8 * dt / 0.5) : 1.0;
-    // Імітуємо натиск на свердло
+    // Модуляція навантаження (натиск на свердло)
     const load = 0.80 + 0.20 * (1 + Math.sin(2 * Math.PI * 0.65 * t)) / 2;
     return cfg.baseW * surge * load;
   }
@@ -131,17 +134,19 @@ function devPower(key, dev, t) {
 }
 
 // ─── HARMONIC DISTORTION ───────────────────────────────────────────────────────
-// Коефіцієнти взяті з реальних вимірювань (IEC 61000-3-2)
+// Реалістичні коефіцієнти на основі вимірювань реальних побутових приладів
+// (IEC 61000-3-2, дослідження Schneider Electric, Fluke Power Quality)
 function distortion(type, w) {
   if (type === "inductive")  return { thd: 0.045 * (w / 80),    sag: 0.005 * (w / 80) };
   if (type === "nonlinear")  return { thd: 0.18  * (w / 550),   sag: 0.012 * (w / 550) };
-  // Резистивні — майже без спотворень, помітно лише на перевантаженні
+  // Резистивні — практично без спотворень, зростає трохи лише при перевантаженні
   return                            { thd: 0.008 * (w / 1500), sag: 0.002 * (w / 1500) };
 }
 
 // ─── ZONE CALCULATION ──────────────────────────────────────────────────────────
-// Гістерезис: не міняємо зону частіше ніж раз на HYSTERESIS_SEC.
-// Без цього індикатор миготить на коливаннях навантаження (наприклад, дриль).
+// Гістерезис: не дозволяємо перескакувати зону частіше ніж за HYSTERESIS_SEC секунд.
+// Це стандартна практика в SCADA-системах і промислових ДБЖ — без неї індикатор
+// "блимає" при коливаннях навантаження (наприклад, дриль з модуляцією).
 const ZONE_HYSTERESIS_SEC = 5;
 
 function calcZoneRaw(margin, charge) {
@@ -152,17 +157,17 @@ function calcZoneRaw(margin, charge) {
   return "critical";                      // <3 хв: критично, але не вимикаємо до фактичного розряду
 }
 
-// Повертає нову зону або стару, з урахуванням гістерезису
+// Враховує час перебування в попередній зоні — повертає або нову, або стару
 function calcZoneStable(margin, charge, prevZone, zoneEnteredAt, t) {
   const raw = calcZoneRaw(margin, charge);
   if (raw === prevZone) return raw;
-  // Погіршення — миттєво (без затримки, з міркувань безпеки)
+  // Перехід до більш критичної зони — мить (без гістерезису, для безпеки)
   const sevOrder = { stable:0, warning:1, critical:2, shutdown:3 };
   if (sevOrder[raw] > sevOrder[prevZone]) return raw;
-  // Покращення — тільки якщо вистояли HYSTERESIS_SEC у попередній зоні
+  // Перехід до менш критичної — тільки якщо в попередній пробули >= HYSTERESIS_SEC
   if (zoneEnteredAt == null) return raw;
   if (t - zoneEnteredAt >= ZONE_HYSTERESIS_SEC) return raw;
-  return prevZone;
+  return prevZone; // ще зарано — лишаємо стару
 }
 
 // ─── TIME FORMATTING ───────────────────────────────────────────────────────────
@@ -174,7 +179,7 @@ function fmt(s) {
   return m > 0 ? `${h}год ${m}хв` : `${h}год`;
 }
 
-// Час доби = стартова година + минулий симульований час
+// Час доби з урахуванням стартової години + симульованого часу
 function fmtClock(startHourMin, simSec) {
   const totalMin = startHourMin + simSec / 60;
   const totalSec = (totalMin * 60) % (24 * 3600);
@@ -185,8 +190,9 @@ function fmtClock(startHourMin, simSec) {
 }
 
 function useViewportWidth() {
-  const [width, setWidth] = useState(() => window.innerWidth);
+  const [width, setWidth] = useState(() => (typeof window !== "undefined" ? window.innerWidth : 768));
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const onResize = () => setWidth(window.innerWidth);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
@@ -199,7 +205,7 @@ function mkState(invId, charge0, batConfigId, startHour, batTypeId, batCount) {
   const bc = BAT_CONFIGS[batConfigId];
   const bat = BAT_LIBRARY[batTypeId ?? BAT_DEFAULT_ID];
   const n = Math.max(1, batCount ?? 2);
-  // Масив зарядів. Паралель — всі активні, АВР — по черзі.
+  // Черга батарей: масив зарядів. Для паралелі — всі активні; для АВР — по черзі.
   const batQueue = Array.from({ length: n }, () => charge0);
   return {
     t:0, charge:charge0,
@@ -222,9 +228,9 @@ function mkState(invId, charge0, batConfigId, startHour, batTypeId, batCount) {
     batCount: n,
     // Черга батарей (масив зарядів 0..1)
     batQueue,           // [bat1, bat2, ..., batN]
-    activeBatIdx: 0,    // АВР: індекс активної батареї
+    activeBatIdx: 0,    // для АВР: індекс поточної активної батареї
     hotSwapDone: false,
-    // Для BatPanel (відображає 2 батареї)
+    // Для сумісності з BatPanel (відображення 2 батарей)
     bat2Charge: n >= 2 ? charge0 : null,
     bat2Active: bc.parallel,
     activeBatN: bc.parallel ? n : 1,
@@ -242,7 +248,7 @@ function tick(prev, realDt, inv, toggle) {
 
   s.t += realDt;
 
-  // Команда від користувача
+  // Команда користувача
   if (toggle) {
     if (toggle.key === "fanMode") {
       const m = toggle.val;
@@ -258,7 +264,7 @@ function tick(prev, realDt, inv, toggle) {
     }
   }
 
-  // Цикли терморегулятора, чайник вимикається після закипання
+  // Цикли терморегулятора + автовимкнення чайника
   for (const k of ["kettle","hob"]) {
     if (s.devices[k].on) {
       s.devices[k].cycleT += realDt;
@@ -272,7 +278,7 @@ function tick(prev, realDt, inv, toggle) {
     }
   }
 
-  // Сумарна потужність + спотворення від усіх пристроїв
+  // Сумарна потужність + спотворення
   let totalW = 0, thdAcc = inv.thd_base, sagAcc = 0;
   for (const k of Object.keys(DEVICES)) {
     const p = devPower(k, s.devices[k], s.t);
@@ -286,37 +292,37 @@ function tick(prev, realDt, inv, toggle) {
   const overload = totalW > inv.max_w;
   if (overload) { thdAcc += 0.05; sagAcc += 0.10; }
 
-  // ─── Розряд акумулятора (залежно від схеми підключення) ─────────────────────
+  // ─── РОЗРЯД АКУМУЛЯТОРА (з урахуванням конфігурації резервування) ───────────
   const effectiveW = overload ? inv.max_w : totalW;
   const bv = batV(s.charge, bat);
   const effNow = inverterEfficiency(effectiveW, inv);
   const iDC = effectiveW / Math.max(bv * effNow, 1);
 
   if (bc.parallel) {
-    // Паралель: струм рівномірно ділиться між батареями
+    // Паралель: струм ділиться порівну між усіма батареями
     const perBat = iDC / s.batQueue.length;
     const dCharge = dischargeDeltaCharge(perBat, realDt, bat);
     s.batQueue = s.batQueue.map(ch => Math.max(0, ch - dCharge));
     sagAcc *= 0.6;
     thdAcc -= 0.005;
   } else if (bc.hotSwap) {
-    // АВР: розряджаємо активну до 4%, тоді перемикаємось на наступну живу.
-    // Якщо всі ≤4% — стоп, нікуди не перемикаємось.
+    // АВР: черга батарей — розряджаємо активну до 4%, потім переходимо на наступну.
+    // Якщо всі батареї <= 4% — система зупиняється (більше не перемикаємо).
     const DEAD_FLOOR = 0.04;
     let idx = s.activeBatIdx;
     const dCharge = dischargeDeltaCharge(iDC, realDt, bat);
     s.batQueue[idx] = Math.max(0, s.batQueue[idx] - dCharge);
 
-    // Перемикаємось, якщо досягли порогу І є куди
+    // Перемикання тільки якщо активна досягла порогу І є жива наступна
     if (s.batQueue[idx] <= DEAD_FLOOR) {
-      // Шукаємо найближчу живу батарею
+      // Шукаємо першу батарею з зарядом > DEAD_FLOOR (крім поточної)
       let next = -1;
       for (let i = 1; i < s.batQueue.length; i++) {
         const ni = (idx + i) % s.batQueue.length;
         if (s.batQueue[ni] > DEAD_FLOOR) { next = ni; break; }
       }
       if (next !== -1) {
-        // Знайшли — перемикаємось
+        // Є жива батарея — перемикаємось
         const prevPct = Math.round(s.batQueue[idx] * 100);
         s.activeBatIdx = next;
         s.hotSwapDone = true;
@@ -326,18 +332,18 @@ function tick(prev, realDt, inv, toggle) {
           sev: "info",
         }];
       }
-      // next === -1 — усі мертві, лишаємось де є, далі обробить zoneCharge
+      // Якщо next === -1 — всі мертві, залишаємось на поточній (вона на 0-4%), zoneCharge це відловить
     }
   } else {
     s.batQueue[0] = Math.max(0, s.batQueue[0] - dischargeDeltaCharge(iDC, realDt, bat));
   }
 
-  // Синхронізуємо charge / bat2Charge для UI
+  // Синхронізуємо s.charge / s.bat2Charge з batQueue для відображення
   s.charge = s.batQueue[0];
   s.bat2Charge = s.batQueue.length >= 2 ? s.batQueue[1] : null;
   s.activeBatN = bc.parallel ? s.batQueue.length : (s.activeBatIdx + 1);
 
-  // Поточний заряд: середній (паралель) або активний (АВР)
+  // Поточний заряд для розрахунків (середній або активний)
   const effectiveCharge = bc.parallel
     ? s.batQueue.reduce((a, b) => a + b, 0) / s.batQueue.length
     : s.batQueue[s.activeBatIdx];
@@ -347,13 +353,14 @@ function tick(prev, realDt, inv, toggle) {
   s.overload   = overload;
   s.thd        = Math.max(0, Math.min(thdAcc, 0.28));
   s.sagFactor  = Math.max(0.75, 1 - sagAcc - (overload ? 0.10 : 0));
-  // sinePhase анімується локально в SineCanvas (через rAF),
-  // незалежно від realDt — щоб не «трясло» на високих швидкостях симуляції
+  // sinePhase тепер анімується локально в SineCanvas (через requestAnimationFrame),
+  // незалежно від realDt — щоб плавно і не "трясло" на високих швидкостях симуляції
 
-  // Час автономної роботи (T_auto).
-  // Беремо ЗГЛАДЖЕНЕ навантаження (EMA), бо короткі піки (дриль)
-  // не повинні різко скакати оцінку. APC/Eaton/Victron роблять так само.
-  // EMA: avg_new = avg_old + α·(P_now − avg_old), α = dt/τ, τ ≈ 30с
+  // Час автономної роботи (T_auto)
+  // Використовуємо ЗГЛАДЖЕНЕ навантаження (EMA), бо миттєві піки (дриль) не повинні
+  // різко змінювати оцінку T_auto. Це стандартна практика — APC, Eaton, Victron всі
+  // використовують sliding window або EMA з τ ≈ 30c для оцінки runtime.
+  // Формула EMA: avg_new = avg_old + α·(P_now - avg_old), α = dt/τ
   const tauSec = 30;
   const alpha = Math.min(1, realDt / tauSec);
   const prevAvgW = prev.avgPowerW ?? effectiveW;
@@ -376,12 +383,12 @@ function tick(prev, realDt, inv, toggle) {
 
   // Зона
   const prevZone = s.zone;
-  // Shutdown — тільки якщо ВСІ батареї мертві
+  // Для обох режимів: shutdown тільки якщо ВСІ батареї мертві
   const allDeadParallel = s.batQueue.every(ch => ch <= 0.05);
   const allDeadHotSwap  = s.batQueue.every(ch => ch <= 0.04);
   const allDead = bc.parallel ? allDeadParallel : (bc.hotSwap ? allDeadHotSwap : s.batQueue[0] <= 0.05);
 
-  // Паралель — середній заряд (не мінімум!); АВР — активна, або 0 якщо всі мертві
+  // zoneCharge: для паралелі — середній (не мінімум!), для АВР — активна або 0 якщо всі мертві
   const zoneCharge = bc.parallel
     ? (allDeadParallel ? 0 : s.batQueue.reduce((a, b) => a + b, 0) / s.batQueue.length)
     : (allDeadHotSwap  ? 0 : Math.max(s.batQueue[s.activeBatIdx ?? 0], 0.051));
@@ -389,14 +396,14 @@ function tick(prev, realDt, inv, toggle) {
   s.zone = calcZoneStable(s.margin, zoneCharge, prevZone, s.zoneEnteredAt, s.t);
   if (s.zone !== prevZone) s.zoneEnteredAt = s.t;
 
-  // Скільки часу у критичній зоні
+  // Час у критичній зоні
   if (s.zone === "critical" && prevZone !== "critical") {
     s.criticalSince = s.t;
   } else if (s.zone !== "critical") {
     s.criticalSince = null;
   }
 
-  // Load Shedding — почергово вимикаємо за пріоритетом
+  // Load Shedding
   const SHED_ORDER = ["drill","hob","fan"];
   const inCriticalLong = s.criticalSince !== null && (s.t - s.criticalSince) > 20;
   const justToggled = toggle?.val === true ? toggle.key : null;
@@ -417,14 +424,14 @@ function tick(prev, realDt, inv, toggle) {
     s.events = [...s.events.slice(-14), { t:s.t, msg:"Акумулятори розряджено — система заблокована", sev:"crit" }];
   }
 
-  // Усі батареї розряджені — вимикаємо все
+  // Вимикаємо пристрої при реальному розряді всіх батарей
   if (allDead) {
     for (const k of Object.keys(s.devices)) {
       if (s.devices[k].on) s.devices[k] = { ...s.devices[k], on:false };
     }
   }
 
-  // Нова точка тренду раз на ~3с
+  // Точка тренду (раз на ~3с симульованого часу)
   const last = s.trend[s.trend.length - 1];
   if (!last || s.t - last.t >= 3) {
     s.trend = [...s.trend.slice(-120), {
@@ -453,7 +460,7 @@ function TrendChart({ trend, lines, yMin, yMax, yLabel, xLabel, title, zoneLines
     const c = ref.current;
     if (!c) return;
     const ctx = c.getContext("2d");
-    const DPR = window.devicePixelRatio || 1;
+    const DPR = (typeof window !== "undefined" ? window.devicePixelRatio : 1) || 1;
     const W = c.clientWidth || 300;
     const H = c.clientHeight || 180;
     c.width = W * DPR; c.height = H * DPR;
@@ -491,7 +498,7 @@ function TrendChart({ trend, lines, yMin, yMax, yLabel, xLabel, title, zoneLines
       return Math.round(v).toString();
     };
 
-    // Сітка та фон
+    // Сітка
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = "#f8fafc";
@@ -506,7 +513,7 @@ function TrendChart({ trend, lines, yMin, yMax, yLabel, xLabel, title, zoneLines
       ctx.beginPath(); ctx.moveTo(x, PT); ctx.lineTo(x, PT + ch); ctx.stroke();
     }
 
-    // Осі
+    // Осі: Y зроблена явною, але без надмірної товщини.
     ctx.strokeStyle = axisC; ctx.lineWidth = 1.25;
     ctx.beginPath();
     ctx.moveTo(PL, PT);
@@ -699,7 +706,7 @@ function SineCanvas({ sagFactor, thd, speedId, paused }) {
 
     const draw = (ts) => {
       const ctx = c.getContext("2d");
-      const DPR = window.devicePixelRatio || 1;
+      const DPR = (typeof window !== "undefined" ? window.devicePixelRatio : 1) || 1;
       const W = c.clientWidth || 300;
       const H = c.clientHeight || 120;
       if (c.width !== W * DPR || c.height !== H * DPR) {
@@ -785,17 +792,20 @@ function AnalogClock({ hour, minute, second, size = 120, showSeconds = true }) {
   const cx = size / 2, cy = size / 2;
   const r = size / 2 - 2;
 
-  // Кути стрілок (12 годин = -π/2, рух за годинниковою)
+  // Кути в радіанах (12 годин = -π/2, рух за годинниковою)
   const hAng = ((hour % 12) + minute / 60) * (Math.PI / 6) - Math.PI / 2;
   const mAng = (minute + second / 60) * (Math.PI / 30) - Math.PI / 2;
   const sAng = second * (Math.PI / 30) - Math.PI / 2;
 
-  // Довжини стрілок (як в Apple Watch): година коротша, секундна найдовша
+  // Apple-style пропорції стрілок:
+  //   годинна — коротка (53%), товста
+  //   хвилинна — довга (78%), середньої товщини
+  //   секундна — найдовша (85%), тонка
   const hLen = r * 0.53;
   const mLen = r * 0.78;
   const sLen = r * 0.85;
 
-  // Декоративні хвостики стрілок за центром
+  // Хвостики (коротка частина за центром) — лише декоративні, ~12% довжини
   const tail = r * 0.10;
   const hTailX = cx - Math.cos(hAng) * tail, hTailY = cy - Math.sin(hAng) * tail;
   const mTailX = cx - Math.cos(mAng) * tail, mTailY = cy - Math.sin(mAng) * tail;
@@ -806,20 +816,20 @@ function AnalogClock({ hour, minute, second, size = 120, showSeconds = true }) {
   const sTailX = cx - Math.cos(sAng) * (r * 0.18);
   const sTailY = cy - Math.sin(sAng) * (r * 0.18);
 
-  // Товщина залежить від розміру — щоб на маленьких годинниках не виглядало громіздко
+  // Товщина адаптивна до розміру (для невеликих годинників не виглядає громіздко)
   const hW = Math.max(2.5, size * 0.038);
   const mW = Math.max(1.8, size * 0.024);
   const sW = Math.max(1, size * 0.012);
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display:"block" }}>
-      {/* Циферблат */}
+      {/* Циферблат — білий чітко (не темна тема) */}
       <circle cx={cx} cy={cy} r={r} fill="#ffffff" stroke="#d1d5db" strokeWidth="1" />
 
-      {/* 12 поділок */}
+      {/* Всі 12 поділок — однакові тонкі штришки, як в Apple Watch */}
       {[...Array(12)].map((_,i) => {
         const a = i * Math.PI / 6 - Math.PI / 2;
-        const isHour = i % 3 === 0; // 12, 3, 6, 9 — товстіші
+        const isHour = i % 3 === 0; // 12, 3, 6, 9 — трохи товстіші
         const inner = r - (isHour ? size * 0.085 : size * 0.055);
         const outer = r - size * 0.025;
         const x1 = cx + Math.cos(a) * inner, y1 = cy + Math.sin(a) * inner;
@@ -830,30 +840,30 @@ function AnalogClock({ hour, minute, second, size = 120, showSeconds = true }) {
           strokeLinecap="round" />;
       })}
 
-      {/* Годинна */}
+      {/* Годинна стрілка (з хвостиком) */}
       <line x1={hTailX} y1={hTailY} x2={hx} y2={hy}
         stroke="#1f2937" strokeWidth={hW} strokeLinecap="round" />
 
-      {/* Хвилинна */}
+      {/* Хвилинна стрілка (з хвостиком) */}
       <line x1={mTailX} y1={mTailY} x2={mx} y2={my}
         stroke="#1f2937" strokeWidth={mW} strokeLinecap="round" />
 
-      {/* Секундна */}
+      {/* Секундна стрілка — тонка червона з хвостиком */}
       {showSeconds && (
         <line x1={sTailX} y1={sTailY} x2={sx} y2={sy}
           stroke="#dc2626" strokeWidth={sW} strokeLinecap="round" />
       )}
 
-      {/* Центр */}
+      {/* Центральна крапка */}
       <circle cx={cx} cy={cy} r={Math.max(2, size * 0.022)} fill="#1f2937" />
       {showSeconds && <circle cx={cx} cy={cy} r={Math.max(0.8, size * 0.010)} fill="#dc2626" />}
     </svg>
   );
 }
 
-// Блок «Час» у головному екрані
+// Компактний інформаційний блок «Час»
 function ClockBlock({ startHour, simT, isRealtime }) {
-  const clk = fmtClock(startHour * 60, simT); // години → хвилини
+  const clk = fmtClock(startHour * 60, simT); // startHour у годинах → переводимо в хвилини
   return (
     <div style={{ background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)",
       borderRadius:"var(--border-radius-lg)", padding:"12px 14px",
@@ -886,29 +896,24 @@ function ClockBlock({ startHour, simT, isRealtime }) {
 }
 
 // ─── STABILITY GAUGE ───────────────────────────────────────────────────────────
-// Великий індикатор T_auto з кольоровими зонами — головний показник стійкості системи.
+// Великий горизонтальний індикатор T_auto з кольоровими зонами — головний
+// візуальний показник функціональної стійкості системи.
 function StabilityGauge({ marginMin, zone }) {
   const SCALE_MAX = 100;
   const v = Math.max(0, Math.min(SCALE_MAX, marginMin));
   const pct = (v / SCALE_MAX) * 100;
 
-  // Логічні пороги — як у calcZoneRaw
   const critEnd    = (3  / SCALE_MAX) * 100;
   const warnEnd    = (8  / SCALE_MAX) * 100;
   const stableEnd  = (60 / SCALE_MAX) * 100;
-
-  // Візуально розширені зони, щоб підписи не злипались.
-  // Маркер ходить за реальним margin, тому колір під ним може не збігатися із зоною.
-  const critEndVis = 14;
-  const warnEndVis = 28;
 
   const z = ZONES[zone];
 
   const displayVal = marginMin >= 100 ? "100+" : marginMin.toFixed(1);
 
-  // Текстовий опис стану
+  // Текстова інтерпретація стану
   let interp;
-  if (zone === "stable")   interp = "Система стабільна";
+  if (zone === "stable")   interp = "Система стабільна — навантаження безпечне";
   else if (zone === "warning") interp = "Запас стійкості зменшується — стежте за зарядом";
   else if (zone === "critical") interp = "Критичний рівень — відключіть зайві пристрої";
   else interp = "Система зупинена";
@@ -920,10 +925,10 @@ function StabilityGauge({ marginMin, zone }) {
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:8 }}>
         <div>
           <div style={{ fontSize:11, fontWeight:600, color:"var(--color-text-secondary)", letterSpacing:"0.06em" }}>
-            ЗАПАС СТІЙКОСТІ
+            ЗАПАС СТАБІЛЬНОСТІ
           </div>
           <div style={{ fontSize:10, color:"var(--color-text-secondary)", marginTop:2 }}>
-            Запас стійкості при поточному навантаженні
+            Запас стабільної роботи при поточному навантаженні
           </div>
         </div>
         <div style={{ display:"flex", alignItems:"baseline", gap:4 }}>
@@ -934,29 +939,29 @@ function StabilityGauge({ marginMin, zone }) {
         </div>
       </div>
 
-      {/* Кольорова шкала (зони візуально розширені для зручності читання) */}
+      {/* Горизонтальна шкала з кольоровими зонами */}
       <div style={{ position:"relative", height:22, borderRadius:11,
         background:"#f3f4f6", border:"0.5px solid #e5e7eb", overflow:"hidden", marginTop:6 }}>
-        {/* критично */}
+        {/* Зона критично (червона, 0-3 хв) */}
         <div style={{ position:"absolute", left:0, top:0, height:"100%",
-          width:`${critEndVis}%`, background:"#fee2e2" }} />
-        {/* ризик */}
-        <div style={{ position:"absolute", left:`${critEndVis}%`, top:0, height:"100%",
-          width:`${warnEndVis - critEndVis}%`, background:"#fef3c7" }} />
-        {/* стабільно */}
-        <div style={{ position:"absolute", left:`${warnEndVis}%`, top:0, height:"100%",
-          width:`${stableEnd - warnEndVis}%`, background:"#dcfce7" }} />
-        {/* відмінно */}
+          width:`${critEnd}%`, background:"#fee2e2" }} />
+        {/* Зона попередження (жовта, 3-8 хв) */}
+        <div style={{ position:"absolute", left:`${critEnd}%`, top:0, height:"100%",
+          width:`${warnEnd - critEnd}%`, background:"#fef3c7" }} />
+        {/* Зона стабільно (зелена, 8-60 хв) */}
+        <div style={{ position:"absolute", left:`${warnEnd}%`, top:0, height:"100%",
+          width:`${stableEnd - warnEnd}%`, background:"#dcfce7" }} />
+        {/* Зона відмінно (синювата, 60-120 хв) */}
         <div style={{ position:"absolute", left:`${stableEnd}%`, top:0, height:"100%",
           width:`${100 - stableEnd}%`, background:"#dbeafe" }} />
 
-        {/* Розділювачі */}
-        <div style={{ position:"absolute", left:`${critEndVis}%`, top:0, height:"100%",
+        {/* Вертикальні розділювачі зон */}
+        <div style={{ position:"absolute", left:`${critEnd}%`, top:0, height:"100%",
           width:1, background:"#dc2626", opacity:0.6 }} />
-        <div style={{ position:"absolute", left:`${warnEndVis}%`, top:0, height:"100%",
+        <div style={{ position:"absolute", left:`${warnEnd}%`, top:0, height:"100%",
           width:1, background:"#b45309", opacity:0.6 }} />
 
-        {/* Поточне значення (за реальною позицією margin) */}
+        {/* Маркер поточного значення */}
         <div style={{
           position:"absolute", top:-3, height:28,
           left:`calc(${pct}% - 2px)`, width:4,
@@ -966,23 +971,23 @@ function StabilityGauge({ marginMin, zone }) {
         }} />
       </div>
 
-      {/* Підписи під шкалою — стоять на стиках кольорових зон */}
+      {/* Підписи зон під шкалою */}
       <div style={{ position:"relative", height:14, marginTop:3 }}>
         <span style={{ position:"absolute", left:0, fontSize:9, color:"#dc2626", fontWeight:500 }}>0</span>
-        <span style={{ position:"absolute", left:`${critEndVis}%`, transform:"translateX(-50%)",
+        <span style={{ position:"absolute", left:`${critEnd}%`, transform:"translateX(-50%)",
           fontSize:9, color:"#dc2626", fontWeight:500 }}>3 хв</span>
-        <span style={{ position:"absolute", left:`${warnEndVis}%`, transform:"translateX(-50%)",
+        <span style={{ position:"absolute", left:`${warnEnd}%`, transform:"translateX(-50%)",
           fontSize:9, color:"#b45309", fontWeight:500 }}>8 хв</span>
         <span style={{ position:"absolute", right:0, fontSize:9, color:"#16a34a", fontWeight:500 }}>≥60 хв</span>
       </div>
       <div style={{ display:"flex", justifyContent:"space-between", marginTop:1, fontSize:9, color:"var(--color-text-secondary)" }}>
-        <span style={{ width:`${critEndVis}%`, textAlign:"center" }}>критично</span>
-        <span style={{ width:`${warnEndVis - critEndVis}%`, textAlign:"center" }}>ризик</span>
-        <span style={{ width:`${stableEnd - warnEndVis}%`, textAlign:"center" }}>попередження → стабільно</span>
+        <span style={{ width:`${critEnd}%`, textAlign:"center" }}>критично</span>
+        <span style={{ width:`${warnEnd - critEnd}%`, textAlign:"center" }}>ризик</span>
+        <span style={{ width:`${stableEnd - warnEnd}%`, textAlign:"center" }}>попередження → стабільно</span>
         <span style={{ width:`${100 - stableEnd}%`, textAlign:"center", color:"#2563eb" }}>відмінно</span>
       </div>
 
-      {/* Опис стану */}
+      {/* Текстова інтерпретація */}
       <div style={{ marginTop:8, padding:"6px 10px", borderRadius:6,
         background:z.bg, border:`0.5px solid ${z.border}`,
         fontSize:11, color:z.col, fontWeight:500 }}>
@@ -1064,11 +1069,11 @@ function DevCard({ devKey, dev, zone, onToggle, onFanMode }) {
         const isKettle = devKey === "kettle";
         const period = isKettle ? cfg.cycleOn : (cfg.cycleOn + cfg.cycleOff);
         const phase  = dev.cycleT % period;
-        // Чайник: 0..100% за cycleOn, потім вимикається.
-        // Конфорка: нагрів → пауза → знову.
+        // Чайник: 0..100% протягом cycleOn → потім вимикається
+        // Конфорка: 0..heatPct (нагрів) → heatPct..100% (пауза) → знову 0
         const pct = (phase / period) * 100;
 
-        // Скільки лишилось: для чайника — до закипання, для конфорки — до кінця фази
+        // Залишок часу: для чайника — до закипання; для конфорки — до кінця поточної фази
         let rem, phaseLabel;
         if (isKettle) {
           rem = Math.round(cfg.cycleOn - phase);
@@ -1079,7 +1084,7 @@ function DevCard({ devKey, dev, zone, onToggle, onFanMode }) {
           phaseLabel = inHeat ? "Нагрів" : "Пауза";
         }
 
-        // Помаранчевий — на нагріві, сіруватий — на паузі
+        // Колір лінії: під час нагріву — статусний (помаранчевий під час роботи), пауза — сіруватий
         const inHeat = isKettle ? true : (phase < cfg.cycleOn);
         const fillCol = inHeat ? stCol : "var(--color-text-secondary)";
 
@@ -1195,7 +1200,7 @@ function BatRow({ label, pct, active, color, note }) {
 }
 
 // ─── ADVISOR ───────────────────────────────────────────────────────────────────
-// Кожен топік: { t, sections: [{ heading?, body, formula? }] }
+// Кожен топік: title, sections[] = { heading?, body, formula? }
 const ADVISOR_TOPICS = [
   {
     t: "Синусоїда виходу",
@@ -1251,7 +1256,7 @@ const ADVISOR_TOPICS = [
     ],
   },
   {
-    t: "Запас стійкості",
+    t: "Запас стабільності",
     sections: [
       {
         body: "Ключовий показник роботи системи — скільки хвилин система зможе продовжувати роботу при поточному навантаженні, якщо нічого не змінювати. Розраховується на основі залишку енергії в батареях та поточного споживання.",
@@ -1314,7 +1319,7 @@ const ADVISOR_TOPICS = [
     sections: [
       {
         heading: "Симуляція",
-        body: "Кожні 50 мс реального часу програма виконує один крок розрахунку. На кожному кроці визначається поточне споживання всіх увімкнених пристроїв, розраховується розряд батарей, оновлюється напруга, THD, просад синусоїди та запас стійкості. Швидкість симуляції можна збільшити до 600× для перегляду тривалих сценаріїв.",
+        body: "Кожні 50 мс реального часу програма виконує один крок розрахунку. На кожному кроці визначається поточне споживання всіх увімкнених пристроїв, розраховується розряд батарей, оновлюється напруга, THD, просад синусоїди та запас стабільності. Швидкість симуляції можна збільшити до 600× для перегляду тривалих сценаріїв.",
       },
       {
         heading: "Автоматичне відключення пристроїв",
@@ -1430,7 +1435,7 @@ function Setup({ onStart }) {
         {/* Card */}
         <div style={{ background:"var(--color-background-primary)", borderRadius:20, border:"0.5px solid var(--color-border-tertiary)", overflow:"hidden", boxShadow:"0 4px 24px rgba(0,0,0,0.06)" }}>
 
-          {/* Інвертор — фіксований (одна модель) */}
+          {/* Inverter info — fixed (тільки одна модель) */}
           <div style={{ background:"linear-gradient(135deg, #1e3a5f 0%, #1d4ed8 100%)", padding:"16px 22px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
             <div>
               <div style={{ fontSize:10, color:"rgba(255,255,255,0.6)", fontWeight:500, letterSpacing:"0.08em", marginBottom:5 }}>ІНВЕРТОР</div>
@@ -1451,13 +1456,13 @@ function Setup({ onStart }) {
               <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
                 {Object.values(BAT_LIBRARY).map(b => {
                   const active = batTypeId === b.id;
-                  const typeColor = "#2563eb";
+                  const typeColor = b.type === "LiFePO4" ? "#7c3aed" : b.type === "GEL" ? "#0891b2" : "#2563eb";
                   return (
                     <button key={b.id} onClick={() => setBatTypeId(b.id)} style={{
                       display:"flex", alignItems:"center", justifyContent:"space-between",
                       padding:"9px 13px", borderRadius:10, cursor:"pointer",
                       border:`1.5px solid ${active ? typeColor : "var(--color-border-tertiary)"}`,
-                      background: active ? "#eff6ff" : "transparent",
+                      background: active ? (b.type === "LiFePO4" ? "#f5f3ff" : b.type === "GEL" ? "#ecfeff" : "#eff6ff") : "transparent",
                       transition:"all 0.18s",
                     }}>
                       <div style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -1618,11 +1623,11 @@ function Setup({ onStart }) {
 }
 
 // ─── MAIN APP ──────────────────────────────────────────────────────────────────
-// Швидкості симуляції:
-//   "real" — 1:1 з реальним часом
-//   1, 10, 60 — прискорено для перегляду довгих сценаріїв
+// Швидкості:
+//   "real"  — 1:1 з реальним часом (натуральний темп)
+//   1, 10, 60 — прискорений симульований час (1×=10× від реального для зручності спостереження)
 const SPEED_OPTIONS = [
-  { id:"real", label:"Натуральний темп", short:"1:1", dtPerTick:0.05 }, // 1:1
+  { id:"real", label:"Натуральний темп", short:"1:1", dtPerTick:0.05 }, // 50мс симул./50мс реал.
   { id:1,      label:"Прискорено 10×",   short:"10×", dtPerTick:0.5 },
   { id:10,     label:"Прискорено 100×",  short:"100×", dtPerTick:5 },
   { id:60,     label:"Прискорено 600×",  short:"600×", dtPerTick:30 },
@@ -1631,7 +1636,7 @@ const SPEED_OPTIONS = [
 export default function App() {
   const [screen, setScreen] = useState("setup");
   const [sim,    setSim]    = useState(null);
-  const [speedId, setSpeedId] = useState("real"); // за замовч. — реальний час
+  const [speedId, setSpeedId] = useState("real"); // за замовчуванням — реальний час
   const [paused, setPaused] = useState(false);
   const [invCfg, setInvCfg] = useState(null);
   const toggleQ = useRef(null);
@@ -1649,11 +1654,11 @@ export default function App() {
     setScreen("sim");
   };
 
-  // Додати ще одну батарею прямо під час симуляції
+  // Додати одну батарею того ж типу під час роботи симулятора
   const handleAddBattery = useCallback(() => {
     const cur = simRef.current;
     if (!cur) return;
-    const newQueue = [...cur.batQueue, 1]; // нова — повністю заряджена
+    const newQueue = [...cur.batQueue, 1]; // нова батарея — завжди повна (100%)
     const next = { ...cur, batQueue: newQueue, batCount: newQueue.length,
       bat2Charge: newQueue.length >= 2 ? newQueue[1] : null };
     simRef.current = next;
@@ -1780,7 +1785,7 @@ export default function App() {
         {/* Main panel */}
         <div style={{ padding:"10px 14px", display:"flex", flexDirection:"column", gap:10, overflowY:"auto" }}>
 
-          {/* StabilityGauge — головний показник стійкості */}
+          {/* StabilityGauge — ГОЛОВНИЙ показник стійкості */}
           <StabilityGauge marginMin={sim.margin} zone={sim.zone} />
 
           {/* Top row: Clock + Battery panel */}
@@ -1827,12 +1832,15 @@ export default function App() {
             </div>
           </div>
 
-          {/* Стабільність інвертора */}
+          {/* ─── СТАБІЛЬНІСТЬ ІНВЕРТОРА ─── */}
           {(() => {
+            const sineQuality = Math.round(sim.sagFactor * 100);
             const thdPct = parseFloat((sim.thd * 100).toFixed(1));
             const thdOk = thdPct <= 5;
             const thdWarn = thdPct > 5 && thdPct <= 8;
             const thdCol = thdOk ? "#16a34a" : thdWarn ? "#b45309" : "#dc2626";
+            const thdLabel = thdOk ? "Норма" : thdWarn ? "Знижена якість" : "Критично";
+            const sineCol = sineQuality >= 95 ? "#16a34a" : sineQuality >= 88 ? "#b45309" : "#dc2626";
             const invMode = sim.overload ? "Перевантаження" : sim.thd > 0.08 ? "Знижена якість" : "Нормальний";
             const invModeCol = sim.overload || sim.thd > 0.08 ? "#dc2626" : "#16a34a";
             return (
@@ -1840,10 +1848,16 @@ export default function App() {
                 <div style={{ fontSize:10, fontWeight:600, color:"var(--color-text-secondary)", letterSpacing:"0.07em", marginBottom:10 }}>
                   СТАБІЛЬНІСТЬ ІНВЕРТОРА
                 </div>
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:10 }}>
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 }}>
+                  <div>
+                    <div style={{ fontSize:10, color:"var(--color-text-secondary)", marginBottom:3 }}>Якість синусоїди</div>
+                    <div style={{ fontSize:18, fontWeight:600, color:sineCol }}>{sineQuality}<span style={{ fontSize:10, marginLeft:1, color:"var(--color-text-secondary)" }}>%</span></div>
+                    <div style={{ fontSize:10, color:"var(--color-text-secondary)", marginTop:2 }}>sagFactor · просад амплітуди</div>
+                  </div>
                   <div>
                     <div style={{ fontSize:10, color:"var(--color-text-secondary)", marginBottom:3 }}>Гарм. спотворення</div>
                     <div style={{ fontSize:18, fontWeight:600, color:thdCol }}>{thdPct}<span style={{ fontSize:10, marginLeft:1, color:"var(--color-text-secondary)" }}>%</span></div>
+                    <div style={{ fontSize:10, color:thdCol, marginTop:2 }}>{thdLabel} · IEC 61000-2-2</div>
                   </div>
                   <div>
                     <div style={{ fontSize:10, color:"var(--color-text-secondary)", marginBottom:3 }}>Режим інвертора</div>
@@ -1851,8 +1865,7 @@ export default function App() {
                     <div style={{ fontSize:10, color:"var(--color-text-secondary)", marginTop:2 }}>SinePure 3500</div>
                   </div>
                 </div>
-                <div style={{ fontSize:9, color:"var(--color-text-secondary)", marginTop:10, marginBottom:3, letterSpacing:"0.04em" }}>THD</div>
-                <div style={{ height:4, borderRadius:2, background:"#f3f4f6", overflow:"hidden" }}>
+                <div style={{ marginTop:10, height:4, borderRadius:2, background:"#f3f4f6", overflow:"hidden" }}>
                   <div style={{ height:"100%", width:`${thdPct / 30 * 100}%`, background: thdCol, borderRadius:2, transition:"width 0.4s" }} />
                 </div>
                 <div style={{ display:"flex", justifyContent:"space-between", fontSize:9, color:"var(--color-text-secondary)", marginTop:3 }}>
@@ -1862,7 +1875,7 @@ export default function App() {
             );
           })()}
 
-          {/* Аналіз стану забезпечення живлення */}
+          {/* ─── АНАЛІЗ СТАНУ ЗАБЕЗПЕЧЕННЯ ─── */}
           {(() => {
             const bc = BAT_CONFIGS[sim.batConfigId];
             const bat = BAT_LIBRARY[sim.batTypeId ?? BAT_DEFAULT_ID];
@@ -1875,7 +1888,7 @@ export default function App() {
             return (
               <div style={{ background:"var(--color-background-primary)", border:"0.5px solid var(--color-border-tertiary)", borderRadius:"var(--border-radius-lg)", padding:"11px 13px" }}>
                 <div style={{ fontSize:10, fontWeight:600, color:"var(--color-text-secondary)", letterSpacing:"0.07em", marginBottom:10 }}>
-                  АНАЛІЗ СТАНУ ЗАБЕЗПЕЧЕННЯ ЖИВЛЕННЯ
+                  АНАЛІЗ СТАНУ ЗАБЕЗПЕЧЕННЯ
                 </div>
                 <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8 }}>
                   {[
@@ -1898,13 +1911,13 @@ export default function App() {
           {/* Sine */}
           <SineCanvas sagFactor={sim.sagFactor} thd={sim.thd} speedId={speedId} paused={paused} />
 
-          {/* Графіки: 4 окремих замість одного зведеного */}
+          {/* Charts: 4 окремих графіки замість поєднаного Вт/% */}
           {(() => {
             const ttip = [
               { key:"chargePct", label:"Заряд №1",   unit:"%",  col:"#16a34a" },
               ...(sim.batQueue.length >= 2 ? [{ key:"bat2Pct", label:"Заряд №2", unit:"%", col:"#0891b2" }] : []),
               { key:"batV",      label:"Напруга",    unit:"В",  col:"#2563eb" },
-              { key:"marginMin", label:"Запас стійк.", unit:"хв", col:z.col     },
+              { key:"marginMin", label:"Запас стаб.", unit:"хв", col:z.col     },
               { key:"powerW",    label:"Потужність", unit:"Вт", col:"#7c3aed" },
               { key:"thdPct",    label:"THD",        unit:"%",  col:"#d97706" },
             ];
@@ -1914,13 +1927,13 @@ export default function App() {
             }
             return (
               <>
-                {/* T_auto — головна метрика стійкості */}
+                {/* T_auto першим — головна метрика стійкості */}
                 <div style={{ display:"grid", gridTemplateColumns: isCompact ? "1fr" : "1fr 1fr", gap:10 }}>
                   <TrendChart
                     trend={sim.trend}
                     title="Стабільність"
                     yLabel="Хвилини" xLabel="t, с"
-                    lines={[{ key:"marginMin", col:z.col, name:"запас стійк." }]}
+                    lines={[{ key:"marginMin", col:z.col, name:"запас стаб." }]}
                     yMin={0} yMax={100}
                     zoneLines={[
                       { val:3,  col:"#dc2626", label:"Критично < 3 хв" },

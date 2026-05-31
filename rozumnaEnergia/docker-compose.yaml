@@ -1,0 +1,70 @@
+services:
+  obolonka:
+    build:
+      context: ./obolonka
+    ports:
+      - "5173:3000"
+    networks:
+      - mererza
+    depends_on:
+      - smart-energy-backend
+
+  pokazovaSlurzba:
+    image: bondarenkorodion/slurzba1
+    platform: linux/amd64
+    ports:
+      - "3000:3000"
+    networks:
+      - mererza
+
+  # ── SmartEnergy Lab ───────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: smartenergy
+      POSTGRES_USER: smartenergy
+      POSTGRES_PASSWORD: smartenergy123
+    volumes:
+      - smart_energy_pg:/var/lib/postgresql/data
+    networks:
+      - mererza
+    restart: unless-stopped
+
+  mosquitto2:
+    build:
+      context: ./mosquitto
+    ports:
+      - "1883:1883"
+    networks:
+      - mererza
+    restart: unless-stopped
+
+  smart-energy-backend:
+    build:
+      context: ./smart-energy-backend
+    ports:
+      - "6010:6010"  
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=smartenergy
+      - DB_USER=smartenergy
+      - DB_PASSWORD=smartenergy123
+      - MQTT_HOST=mosquitto2
+      - MQTT_PORT=1883
+      - MQTT_USERNAME=smartenergy
+      - MQTT_PASSWORD=SmartEnergy2024
+    depends_on:
+      - postgres
+      - mosquitto2  
+    networks:
+      - mererza
+    restart: unless-stopped
+
+networks:
+  mererza:
+    driver: bridge
+
+volumes:
+  smart_energy_pg:

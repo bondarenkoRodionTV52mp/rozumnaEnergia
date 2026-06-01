@@ -16,5 +16,6 @@ export default [
     route("iot-gateway", "routes/iotGateway/index.jsx"),
     
     route("cryptomonitoring_Hubin", "routes/cryptomonitoring_Hubin/index.jsx"),
+    route("smart-energy", "routes/smartEnergyLab/App.jsx"),
 
 ] satisfies RouteConfig;

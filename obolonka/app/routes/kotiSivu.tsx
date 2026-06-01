@@ -33,6 +33,9 @@ export default function Home() {
         <NavLink className="font-bold" to="heat-flow">
           Heat Flow
         </NavLink >
+        <NavLink to="/smart-energy">
+        Smart Energy Build System (Іщук)
+        </NavLink>
         </nav>
       </nav>
 

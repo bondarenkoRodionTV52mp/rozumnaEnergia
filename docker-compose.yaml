@@ -21,6 +21,11 @@ services:
     networks:
       - mererza
 
+  smartenergy-backend:
+    image: puvlichok/smartenergy-backend
+    ports:
+    - "6007:6007"
+
 
 # [Початок] Монастирний Моніторинг
   influxdb:

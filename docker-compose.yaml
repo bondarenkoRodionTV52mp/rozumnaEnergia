@@ -105,6 +105,54 @@ services:
       - DATA_SAVE_TOPIC=sensor-data
 # [Кінець] Монастирний Моніторинг
 
+# [Початок] Семенчук Олександр ТВ-22 Варіант 10
+  postgres-semenchuk:
+    image: postgres:16-alpine
+    container_name: postgres_semenchuk
+    environment:
+      POSTGRES_DB: smartenergy
+      POSTGRES_USER: smartenergy
+      POSTGRES_PASSWORD: smartenergy123
+    volumes:
+      - smart_energy_semenchuk_pg:/var/lib/postgresql/data
+    networks:
+      - mererza
+    restart: unless-stopped
+
+  mosquitto-semenchuk:
+    build:
+      context: ./mosquitto
+    container_name: mosquitto_semenchuk
+    ports:
+      - "1884:1883"
+    networks:
+      - mererza
+    restart: unless-stopped
+
+  smart-energy-backend-semenchuk:
+    build:
+      context: ./smart-energy-backend
+    container_name: backend_semenchuk
+    ports:
+      - "6010:6010"  
+    environment:
+      - DB_HOST=postgres-semenchuk
+      - DB_PORT=5432
+      - DB_NAME=smartenergy
+      - DB_USER=smartenergy
+      - DB_PASSWORD=smartenergy123
+      - MQTT_HOST=mosquitto-semenchuk
+      - MQTT_PORT=1883
+      - MQTT_USERNAME=smartenergy
+      - MQTT_PASSWORD=SmartEnergy2024
+    depends_on:
+      - postgres-semenchuk
+      - mosquitto-semenchuk  
+    networks:
+      - mererza
+    restart: unless-stopped
+# [Кінець] Семенчук Олександр ТВ-22
+
   backend-kravchenko:
     image: nastensii/smart-energy-backend:latest
     container_name: smart_energy_api_kravchenko
@@ -145,3 +193,4 @@ networks:
 volumes:
   influxdb_data: # оголошено том для всього проєкту
   mongo_data:
+  smart_energy_semenchuk_pg:

@@ -18,5 +18,7 @@ export default [
     route("cryptomonitoring_Hubin", "routes/cryptomonitoring_Hubin/index.jsx"),
     route("smart-energy", "routes/smartEnergyLab/App.jsx"),
     route("Battery_Kolodko", "routes/Battery_Kolodko/BatteryManagement.jsx"),
+    
+    route("semenchuk_smart_energy", "routes/smartEnergyLab_Semenchuk/index.tsx"),
 
 ] satisfies RouteConfig;

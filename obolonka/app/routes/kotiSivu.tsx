@@ -36,6 +36,9 @@ export default function Home() {
         <NavLink to="/smart-energy">
         Smart Energy Build System (Іщук)
         </NavLink>
+        <NavLink className="font-bold hover:text-lime-700 transition" to="/semenchuk_smart_energy">
+        Smart Energy Lab (Семенчук)
+        </NavLink>
 
          <NavLink className="font-bold hover:text-lime-700 transition" to="Battery_Kolodko">
           Аккумулятор (Колодько)

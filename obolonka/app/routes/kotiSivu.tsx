@@ -14,8 +14,8 @@ export default function Home() {
         <NavLink className="font-bold hover:text-lime-700 transition" to="sivuKaksi">
           toineen sivuun
         </NavLink>
-        <NavLink 
-          className="font-bold text-blue-800 bg-white px-4 py-2 rounded shadow hover:bg-blue-50 hover:text-blue-600 transition" 
+        <NavLink
+          className="font-bold text-blue-800 bg-white px-4 py-2 rounded shadow hover:bg-blue-50 hover:text-blue-600 transition"
           to="func_stab_Troian"
         >
           $ Smart Energy EMS (Troian)
@@ -23,8 +23,8 @@ export default function Home() {
         <NavLink className="font-bold hover:text-lime-700 transition" to="Monitoring_Monastyrnyi">
           Monitoring (Monastyrnyi)
         </NavLink>
-        <NavLink 
-          className="font-bold text-emerald-800 bg-white px-4 py-2 rounded shadow hover:bg-emerald-50 hover:text-emerald-600 transition" 
+        <NavLink
+          className="font-bold text-emerald-800 bg-white px-4 py-2 rounded shadow hover:bg-emerald-50 hover:text-emerald-600 transition"
           to="functional-stability-shevchenko"
         >
           Functional Stability (Shevchenko)
@@ -32,6 +32,13 @@ export default function Home() {
         <NavLink className="font-bold hover:text-lime-700 transition" to="heat-flow">
           Heat Flow
         </NavLink>
+        <NavLink to="/smart-energy">
+          Smart Energy Build System (Іщук)
+        </NavLink>
+
+        <NavLink className="font-bold hover:text-lime-700 transition" to="Battery_Kolodko">
+          Аккумулятор (Колодько)
+        </NavLink >
       </nav>
 
       <h1 className="text-4xl mb-4 mt-6">

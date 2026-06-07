@@ -20,6 +20,12 @@ services:
       - "6028:8085"
     restart: always
 
+  backend_dosmukhamedov:
+    image: xerarobespierre/hybridinvertor-backend-1:latest
+    ports:
+      - "6050:6050"
+    restart: always
+
   pokazovaSlurzba:
     image: bondarenkorodion/slurzba1
     ports:

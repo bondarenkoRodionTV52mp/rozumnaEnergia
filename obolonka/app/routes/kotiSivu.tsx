@@ -39,6 +39,10 @@ export default function Home() {
         <NavLink className="font-bold hover:text-lime-700 transition" to="Battery_Kolodko">
           Аккумулятор (Колодько)
         </NavLink >
+
+        <NavLink className="font-bold hover:text-lime-700 transition" to="HybridInverter_Dosmukhamedov">
+          Гібридний інвертор(Досмухамедов)
+        </NavLink >
       </nav>
 
       <h1 className="text-4xl mb-4 mt-6">

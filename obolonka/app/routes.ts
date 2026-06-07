@@ -22,5 +22,7 @@ export default [
   ),
   route("smart-energy", "routes/smartEnergyLab/App.jsx"),
   route("Battery_Kolodko", "routes/Battery_Kolodko/BatteryManagement.jsx"),
+  route("HybridInverter_Dosmukhamedov", "routes/HybridInverter_Dosmukhamedov/pages/Dashboard.jsx"),
+
 
 ] satisfies RouteConfig;

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from 'consts';
 
 const Settings = () => {
     const [settings, setSettings] = useState({ 
@@ -13,14 +14,14 @@ const Settings = () => {
 
     // Завантажуємо актуальні налаштування при старті
     useEffect(() => {
-        axios.get('http://localhost:6050/api/settings')
+        axios.get(`${API_BASE_URL}:6050/api/settings`)
             .then(res => setSettings(res.data))
             .catch(err => console.error(err));
     }, []);
 
     const saveSettings = async (newSettings) => {
         try {
-            const res = await axios.post('http://localhost:6050/api/settings', newSettings);
+            const res = await axios.post(`${API_BASE_URL}:6050/api/settings`, newSettings);
             setSettings(res.data.settings);
             setStatus('✅ Налаштування збережено!');
             setTimeout(() => setStatus(''), 3000);

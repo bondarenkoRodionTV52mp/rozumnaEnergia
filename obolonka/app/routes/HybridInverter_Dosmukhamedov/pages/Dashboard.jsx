@@ -4,8 +4,10 @@ import axios from 'axios';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
+import { API_BASE_URL } from 'consts';
 
-const socket = io('http://localhost:6050');
+
+const socket = io(`${API_BASE_URL}:6050`);
 
 // Компонент для підказок для режимів живлення
 const ModeTooltip = ({ mode }) => {
@@ -87,7 +89,7 @@ const Dashboard = () => {
     const fetchHistory = async (mins) => {
         try {
             console.log('📊 Fetching history with minutes:', mins);
-            const res = await axios.get(`http://localhost:6050/api/history`, {
+            const res = await axios.get(`${API_BASE_URL}:6050/api/history`, {
                 params: { minutes: mins }
             });
             console.log('📊 Received records:', res.data.length, 'First timestamp:', res.data[0]?.timestamp, 'Last timestamp:', res.data[res.data.length - 1]?.timestamp);
@@ -108,7 +110,7 @@ const Dashboard = () => {
 
     const changeMode = async (newMode) => {
         try {
-            const res = await axios.post('http://localhost:6050/api/settings/mode', { mode: newMode });
+            const res = await axios.post(`${API_BASE_URL}:6050/api/settings/mode`, { mode: newMode });
             setCurrentMode(res.data.mode);
             console.log('⚡ Режим змінено на:', res.data.mode);
         } catch (err) {
@@ -118,7 +120,7 @@ const Dashboard = () => {
 
     // Завантаження налаштувань при старті
     useEffect(() => {
-        axios.get('http://localhost:6050/api/settings')
+        axios.get(`${API_BASE_URL}:6050/api/settings`)
             .then(res => setCurrentMode(res.data.mode || 'SBU'))
             .catch(err => console.error(err));
     }, []);

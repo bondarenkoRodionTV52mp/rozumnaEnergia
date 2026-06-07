@@ -35,7 +35,7 @@ function BatteryManagement() {
   const [range, setRange] = useState('day'); 
   const [hist, setHist] = useState(null);
 
-  const BACKEND_URL =`${API_BASE_URL}:6005`; // 'http://localhost:6005'
+  const BACKEND_URL =`${API_BASE_URL}:6005`; // `${API_BASE_URL}:6005'
 
   const fetchData = async () => {
     try {

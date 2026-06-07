@@ -26,16 +26,6 @@ services:
       - "6050:6050"
     restart: always
 
-  backend-hybinv:
-    build:
-      context: ../HybInv/backend
-    ports:
-      - "6050:6050"
-    environment:
-      - NODE_ENV=production
-      - PORT=6050
-    restart: always
-
   pokazovaSlurzba:
     image: bondarenkorodion/slurzba1
     ports:

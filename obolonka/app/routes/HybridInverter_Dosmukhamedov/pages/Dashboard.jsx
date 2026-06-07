@@ -338,10 +338,10 @@ const statsGrid = {
 };
 
 const mainStatusCard = {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#1e293b',
     borderRadius: '16px',
     padding: '24px',
-    border: '1px solid #e5e7eb',
+    border: '1px solid #334155',
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
@@ -351,10 +351,10 @@ const mainStatusCard = {
 
 const miniChartContainer = {
     width: '320px',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#1e293b',
     borderRadius: '16px',
     padding: '20px',
-    border: '1px solid #e5e7eb',
+    border: '1px solid #334155',
     display: 'flex',
     flexDirection: 'column',
     boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
@@ -368,41 +368,41 @@ const modeBtnLarge = (active) => ({
     gap: '8px',
     padding: '12px',
     borderRadius: '10px',
-    border: active ? '2px solid #f59e0b' : '1px solid #e5e7eb',
+    border: active ? '2px solid #f59e0b' : '1px solid #334155',
     cursor: 'pointer',
-    backgroundColor: active ? 'rgba(245, 158, 11, 0.1)' : '#f5f5f5',
-    color: active ? '#f59e0b' : '#666666',
+    backgroundColor: active ? 'rgba(245, 158, 11, 0.15)' : '#0f172a',
+    color: active ? '#f59e0b' : '#e5e7eb',
     transition: 'all 0.2s ease',
     fontWeight: 'bold',
     fontSize: '14px'
 });
-const cardStyle = { backgroundColor: '#ffffff', padding: '25px', borderRadius: '15px', border: '1px solid #e5e7eb' };
-const labelStyle = { color: '#999999', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' };
-const valueStyle = { fontSize: '36px', fontWeight: '700', margin: '10px 0', color: '#1f2937' };
-const progressContainer = { height: '6px', backgroundColor: '#e5e7eb', borderRadius: '3px', marginTop: '15px' };
+const cardStyle = { backgroundColor: '#1e293b', padding: '25px', borderRadius: '15px', border: '1px solid #334155' };
+const labelStyle = { color: '#94a3b8', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' };
+const valueStyle = { fontSize: '36px', fontWeight: '700', margin: '10px 0', color: '#f3f4f6' };
+const progressContainer = { height: '6px', backgroundColor: '#334155', borderRadius: '3px', marginTop: '15px' };
 const progressBar = (soc, color) => ({ width: `${soc}%`, height: '100%', backgroundColor: color || (soc < 50 ? '#ef4444' : '#f59e0b'), borderRadius: '3px', transition: 'width 0.5s ease, background-color 0.5s ease' });
-const chartCard = { backgroundColor: '#ffffff', padding: '30px', borderRadius: '15px', border: '1px solid #e5e7eb' };
+const chartCard = { backgroundColor: '#1e293b', padding: '30px', borderRadius: '15px', border: '1px solid #334155' };
 const modeBtn = (active) => ({
-    padding: '8px 12px', borderRadius: '6px', border: '1px solid #e5e7eb', cursor: 'pointer',
-    backgroundColor: active ? '#f59e0b' : '#f5f5f5', color: active ? '#fff' : '#666666',
+    padding: '8px 12px', borderRadius: '6px', border: '1px solid #334155', cursor: 'pointer',
+    backgroundColor: active ? '#f59e0b' : '#0f172a', color: active ? '#000' : '#e5e7eb',
     transition: 'all 0.3s', fontWeight: 'bold', fontSize: '12px'
 });
-const selectStyle = { backgroundColor: '#ffffff', color: '#1f2937', border: '1px solid #e5e7eb', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer' };
+const selectStyle = { backgroundColor: '#1e293b', color: '#f3f4f6', border: '1px solid #334155', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer' };
 
 const tooltipStyle = {
     position: 'absolute',
     top: '120%',
     left: '50%',
     transform: 'translateX(-50%)',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#1e293b',
     border: '2px solid #f59e0b',
     borderRadius: '12px',
     padding: '15px',
     minWidth: '320px',
     maxWidth: '380px',
     zIndex: 1000,
-    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
-    color: '#1f2937',
+    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+    color: '#f3f4f6',
     fontSize: '13px',
     lineHeight: '1.5',
     animation: 'slideUp 0.2s ease-out',

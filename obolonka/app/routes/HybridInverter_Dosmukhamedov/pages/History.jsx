@@ -32,9 +32,9 @@ const History = () => {
   }, [timeRange]);
 
   return (
-    <div style={{ animation: 'fadeIn 0.5s ease', color: '#1f2937' }}>
+    <div style={{ animation: 'fadeIn 0.5s ease', color: '#f3f4f6' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h2 style={{ margin: 0, color: '#666666' }}>Архів телеметрії</h2>
+        <h2 style={{ margin: 0, color: '#94a3b8' }}>Архів телеметрії</h2>
         
         {/* Панель фільтрації */}
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -55,7 +55,7 @@ const History = () => {
       </header>
       
       {loading ? (
-        <p style={{ color: '#999999' }}>Завантаження бази даних...</p>
+        <p style={{ color: '#94a3b8' }}>Завантаження бази даних...</p>
       ) : (
         <div style={tableContainer}>
           <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
@@ -100,30 +100,30 @@ const History = () => {
 
 // Стилі
 const tableContainer = { 
-  backgroundColor: '#ffffff', 
+  backgroundColor: '#1e293b', 
   borderRadius: '15px', 
   overflow: 'hidden', 
-  border: '1px solid #e5e7eb' 
+  border: '1px solid #334155' 
 };
 
 const tableStyle = { width: '100%', borderCollapse: 'collapse', textAlign: 'left' };
 
-const headerStyle = { backgroundColor: '#f9f9f9', color: '#f59e0b', borderBottom: '2px solid #e5e7eb' };
+const headerStyle = { backgroundColor: '#0f172a', color: '#f59e0b', borderBottom: '2px solid #334155' };
 
-const thStyle = { padding: '15px', fontSize: '14px', color: '#1f2937', fontWeight: '600', borderBottom: '2px solid #e5e7eb' };
+const thStyle = { padding: '15px', fontSize: '14px', color: '#f3f4f6', fontWeight: '600', borderBottom: '2px solid #334155' };
 
-const tdStyle = { padding: '12px 15px', fontSize: '14px', color: '#4b5563' };
+const tdStyle = { padding: '12px 15px', fontSize: '14px', color: '#e5e7eb' };
 
 const rowStyle = { 
-  borderBottom: '1px solid #e5e7eb',
+  borderBottom: '1px solid #334155',
   transition: 'background-color 0.2s',
-  ':hover': { backgroundColor: '#f9f9f9' }
+  ':hover': { backgroundColor: 'rgba(51, 65, 85, 0.5)' }
 };
 
 const selectStyle = { 
-  backgroundColor: '#ffffff', 
-  color: '#1f2937', 
-  border: '1px solid #e5e7eb', 
+  backgroundColor: '#1e293b', 
+  color: '#f3f4f6', 
+  border: '1px solid #334155', 
   padding: '8px 12px', 
   borderRadius: '8px',
   outline: 'none'

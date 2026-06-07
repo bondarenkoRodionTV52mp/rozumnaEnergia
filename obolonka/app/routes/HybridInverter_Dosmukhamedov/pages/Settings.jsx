@@ -35,8 +35,8 @@ const Settings = () => {
     };
 
     return (
-        <div style={{ color: '#1f2937', animation: 'fadeIn 0.5s ease' }}>
-            <h2 style={{ color: '#666666', marginBottom: '30px' }}>Налаштування системи</h2>
+        <div style={{ color: '#f3f4f6', animation: 'fadeIn 0.5s ease' }}>
+            <h2 style={{ color: '#94a3b8', marginBottom: '30px' }}>Налаштування системи</h2>
 
             {/* ВИБІР ДЖЕРЕЛА ДАНИХ */}
             <div style={settingsCard}>
@@ -118,32 +118,32 @@ const Settings = () => {
 
 // Стилі
 const settingsCard = { 
-    backgroundColor: '#ffffff', 
+    backgroundColor: '#1e293b', 
     padding: '25px', 
     borderRadius: '15px', 
-    border: '1px solid #e5e7eb',
+    border: '1px solid #334155',
     marginBottom: '20px' 
 };
 
-const sectionTitle = { fontSize: '18px', color: '#1f2937', marginTop: 0 };
-const hint = { color: '#999999', fontSize: '14px', marginTop: '10px' };
+const sectionTitle = { fontSize: '18px', color: '#f3f4f6', marginTop: 0 };
+const hint = { color: '#94a3b8', fontSize: '14px', marginTop: '10px' };
 
 const toggleBtn = (active) => ({
-    padding: '12px 20px', borderRadius: '8px', border: '1px solid #e5e7eb', cursor: 'pointer',
-    backgroundColor: active ? '#f59e0b' : '#f5f5f5', color: active ? '#fff' : '#666666',
+    padding: '12px 20px', borderRadius: '8px', border: '1px solid #334155', cursor: 'pointer',
+    backgroundColor: active ? '#f59e0b' : '#0f172a', color: active ? '#000' : '#e5e7eb',
     transition: 'all 0.3s', fontWeight: '600'
 });
 
 const speedBtn = (active) => ({
-    padding: '8px 16px', borderRadius: '6px', border: '1px solid #e5e7eb', cursor: 'pointer',
-    backgroundColor: active ? '#f59e0b' : '#f5f5f5', color: active ? '#fff' : '#666666',
+    padding: '8px 16px', borderRadius: '6px', border: '1px solid #334155', cursor: 'pointer',
+    backgroundColor: active ? '#f59e0b' : '#0f172a', color: active ? '#000' : '#e5e7eb',
     fontWeight: 'bold', transition: 'all 0.2s'
 });
 
 const multiplierBtn = (active, activeColor) => ({
-    padding: '10px 15px', borderRadius: '6px', border: '1px solid #e5e7eb', cursor: 'pointer',
-    backgroundColor: active ? activeColor : '#f5f5f5', 
-    color: active ? '#fff' : '#666666',
+    padding: '10px 15px', borderRadius: '6px', border: '1px solid #334155', cursor: 'pointer',
+    backgroundColor: active ? activeColor : '#0f172a', 
+    color: active ? '#000' : '#e5e7eb',
     fontWeight: 'bold', transition: 'all 0.2s'
 });
 
@@ -155,8 +155,8 @@ const modeOptionBtn = (active) => ({
 
 const statusMsg = { 
     position: 'fixed', bottom: '20px', right: '20px', padding: '12px 24px', 
-    borderRadius: '12px', backgroundColor: '#ffffff', border: '1px solid #f59e0b', 
-    color: '#1f2937', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 100
+    borderRadius: '12px', backgroundColor: '#1e293b', border: '1px solid #f59e0b', 
+    color: '#f3f4f6', boxShadow: '0 4px 12px rgba(0,0,0,0.5)', zIndex: 100
 };
 
 export default Settings;

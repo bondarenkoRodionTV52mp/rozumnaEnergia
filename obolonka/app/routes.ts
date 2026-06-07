@@ -22,7 +22,12 @@ export default [
   ),
   route("smart-energy", "routes/smartEnergyLab/App.jsx"),
   route("Battery_Kolodko", "routes/Battery_Kolodko/BatteryManagement.jsx"),
-  route("HybridInverter_Dosmukhamedov", "routes/HybridInverter_Dosmukhamedov/pages/Dashboard.jsx"),
-
+ 
+  // HybridInverter with nested routes
+  route("HybridInverter_Dosmukhamedov", "routes/HybridInverter_Dosmukhamedov/App.jsx", [
+    route("", "routes/HybridInverter_Dosmukhamedov/pages/Dashboard.jsx"),
+    route("history", "routes/HybridInverter_Dosmukhamedov/pages/History.jsx"),
+    route("settings", "routes/HybridInverter_Dosmukhamedov/pages/Settings.jsx"),
+  ]),
 
 ] satisfies RouteConfig;

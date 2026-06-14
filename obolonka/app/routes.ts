@@ -1,17 +1,18 @@
 import { type RouteConfig, index, route } from "@react-router/dev/routes";
 
 export default [
-    index("routes/kotiSivu.tsx"),
-    route("sivuKaksi", "routes/sivuKaksi/index.tsx"),
-    route("func_stab_Troian", "routes/functional_stability_Troian/index.tsx"),
+  index("routes/kotiSivu.tsx"),
+  route("sivuKaksi", "routes/sivuKaksi/index.tsx"),
+  route("func_stab_Troian", "routes/functional_stability_Troian/index.tsx"),
 
-    route("heat-flow", "routes/heatFlow/index.tsx"),
+  route("heat-flow", "routes/heatFlow/index.tsx"),
 
-    route("sinusInvertor", "routes/sinusInvertor/index.jsx"),
+  route("sinusInvertor", "routes/sinusInvertor/index.jsx"),
 
-    route("Monitoring_Monastyrnyi", "routes/Monitoring_Monastyrnyi/App.tsx"),
-    route("Monitoring_Monastyrnyi/analytics/:type", "routes/Monitoring_Monastyrnyi/components/AnalyticsPage.tsx"),
-    route("Monitoring_Monastyrnyi/comparison", "routes/Monitoring_Monastyrnyi/components/ComparisonPage.tsx"),
+  route("Monitoring_Monastyrnyi", "routes/Monitoring_Monastyrnyi/App.tsx"),
+  route("Monitoring_Monastyrnyi/analytics/:type", "routes/Monitoring_Monastyrnyi/components/AnalyticsPage.tsx"),
+  route("Monitoring_Monastyrnyi/comparison", "routes/Monitoring_Monastyrnyi/components/ComparisonPage.tsx"),
+
 
     route("iot-gateway", "routes/iotGateway/index.jsx"),
     
@@ -20,5 +21,23 @@ export default [
     route("Battery_Kolodko", "routes/Battery_Kolodko/BatteryManagement.jsx"),
     
     route("semenchuk_smart_energy", "routes/smartEnergyLab_Semenchuk/index.tsx"),
+
+  route("iot-gateway", "routes/iotGateway/index.jsx"),
+
+  route("cryptomonitoring_Hubin", "routes/cryptomonitoring_Hubin/index.jsx"),
+  route(
+    "functional-stability-shevchenko",
+    "routes/functional_stability_Shevchenko/src/index.tsx"
+  ),
+  route("smart-energy", "routes/smartEnergyLab/App.jsx"),
+  route("Battery_Kolodko", "routes/Battery_Kolodko/BatteryManagement.jsx"),
+ 
+  // HybridInverter with nested routes
+  route("HybridInverter_Dosmukhamedov", "routes/HybridInverter_Dosmukhamedov/App.jsx", [
+    route("", "routes/HybridInverter_Dosmukhamedov/pages/Dashboard.jsx"),
+    route("history", "routes/HybridInverter_Dosmukhamedov/pages/History.jsx"),
+    route("settings", "routes/HybridInverter_Dosmukhamedov/pages/Settings.jsx"),
+  ]),
+
 
 ] satisfies RouteConfig;

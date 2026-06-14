@@ -8,50 +8,56 @@ export function meta({ }: Route.MetaArgs) {
 }
 
 export default function Home() {
-
-
   return (
     <div className="p-4">
       <nav className="bg-lime-200 p-4 flex flex-wrap gap-6 items-center rounded-md shadow-sm">
         <NavLink className="font-bold hover:text-lime-700 transition" to="sivuKaksi">
           toineen sivuun
-        </NavLink >
-        
-        <NavLink 
-          className="font-bold text-blue-800 bg-white px-4 py-2 rounded shadow hover:bg-blue-50 hover:text-blue-600 transition" 
+        </NavLink>
+        <NavLink
+          className="font-bold text-blue-800 bg-white px-4 py-2 rounded shadow hover:bg-blue-50 hover:text-blue-600 transition"
           to="func_stab_Troian"
         >
-          $ Smart Energy EMS (Троян)
+          $ Smart Energy EMS (Troian)
         </NavLink>
         <NavLink className="font-bold hover:text-lime-700 transition" to="Monitoring_Monastyrnyi">
-          Моніторинг (Монастирний)
-        </NavLink >
-      <nav className="bg-lime-200 p-4 mb-4 flex gap-4">
-        <NavLink className="font-bold" to="sivuKaksi">
-          toineen sivuun
-        </NavLink >
-        <NavLink className="font-bold" to="heat-flow">
-          Heat Flow
-        </NavLink >
-        <NavLink to="/smart-energy">
-        Smart Energy Build System (Іщук)
+          Monitoring (Monastyrnyi)
         </NavLink>
+        <NavLink
+          className="font-bold text-emerald-800 bg-white px-4 py-2 rounded shadow hover:bg-emerald-50 hover:text-emerald-600 transition"
+          to="functional-stability-shevchenko"
+        >
+          Functional Stability (Shevchenko)
+        </NavLink>
+        <NavLink className="font-bold hover:text-lime-700 transition" to="heat-flow">
+          Heat Flow
+        </NavLink>
+        <NavLink to="/smart-energy">
+          Smart Energy Build System (Іщук)
+        </NavLink>
+
 
         <NavLink className="font-bold hover:text-lime-700 transition" to="semenchuk_smart_energy">
         Smart Energy (Семенчук)
         </NavLink>
 
          <NavLink className="font-bold hover:text-lime-700 transition" to="Battery_Kolodko">
+
+        <NavLink className="font-bold hover:text-lime-700 transition" to="Battery_Kolodko">
+
           Аккумулятор (Колодько)
         </NavLink >
-        </nav>
+
+        <NavLink className="font-bold hover:text-lime-700 transition" to="HybridInverter_Dosmukhamedov">
+          Гібридний інвертор(Досмухамедов)
+        </NavLink >
       </nav>
 
       <h1 className="text-4xl mb-4 mt-6">
-        Це головна сторінка
+        Smart Energy Lab
       </h1>
       <h2 className="text-xl text-gray-700">
-        вона поки ще порожня, бо я не до кінця уявляю як саме її треба оформити, але тут є панель навігації, у неї власне і треба додавати посилання на свої частини роботи
+        Navigation panel above contains links to all subsystems
       </h2>
     </div>
   );

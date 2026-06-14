@@ -106,9 +106,14 @@ services:
 # [Кінець] Монастирний Моніторинг
 
 # [Початок] Семенчук Олександр ТВ-22
+version: '3.8'
+
+services:
   postgres-semenchuk:
     image: postgres:16-alpine
     container_name: postgres_semenchuk
+    ports:
+      - "5432:5432"  # Обов'язково відкриваємо порт назовні, щоб викладач міг перевірити базу через DBeaver
     environment:
       POSTGRES_DB: smart_energy_semenchuk
       POSTGRES_USER: alex_semenchuk
@@ -126,9 +131,9 @@ services:
       - "1883:1883"
     command: >
       sh -c "echo 'listener 1883\nallow_anonymous false\npassword_file /mosquitto/config/passwd\npersistence false' > /mosquitto/config/mosquitto.conf &&
-             mosquitto_passwd -b -c /mosquitto/config/passwd smartenergy SmartEnergy2024 &&
-             mosquitto_passwd -b /mosquitto/config/passwd subscriber SmartEnergy2024 &&
-             exec mosquitto -c /mosquitto/config/mosquitto.conf"
+      mosquitto_passwd -b -c /mosquitto/config/passwd smartenergy SmartEnergy2024 &&
+      mosquitto_passwd -b /mosquitto/config/passwd subscriber SmartEnergy2024 &&
+      exec mosquitto -c /mosquitto/config/mosquitto.conf"
     networks:
       - mererza
     restart: unless-stopped
@@ -138,7 +143,7 @@ services:
       context: ./smart-energy-backend
     container_name: backend_semenchuk
     ports:
-      - "6010:6010"  
+      - "6010:6010"  # Наш порт бекенда, куди буде стукати фронтенд
     environment:
       - DB_HOST=postgres-semenchuk
       - DB_PORT=5432
@@ -155,6 +160,13 @@ services:
     networks:
       - mererza
     restart: unless-stopped
+
+volumes:
+  smart_energy_semenchuk_pg:
+
+networks:
+  mererza:
+    driver: bridge
 # [Кінець] Семенчук Олександр ТВ-22
 
   backend-kravchenko:

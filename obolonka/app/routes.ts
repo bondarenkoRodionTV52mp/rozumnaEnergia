@@ -13,6 +13,15 @@ export default [
   route("Monitoring_Monastyrnyi/analytics/:type", "routes/Monitoring_Monastyrnyi/components/AnalyticsPage.tsx"),
   route("Monitoring_Monastyrnyi/comparison", "routes/Monitoring_Monastyrnyi/components/ComparisonPage.tsx"),
 
+
+    route("iot-gateway", "routes/iotGateway/index.jsx"),
+    
+    route("cryptomonitoring_Hubin", "routes/cryptomonitoring_Hubin/index.jsx"),
+    route("smart-energy", "routes/smartEnergyLab/App.jsx"),
+    route("Battery_Kolodko", "routes/Battery_Kolodko/BatteryManagement.jsx"),
+    
+    route("semenchuk_smart_energy", "routes/smartEnergyLab_Semenchuk/index.tsx"),
+
   route("iot-gateway", "routes/iotGateway/index.jsx"),
 
   route("cryptomonitoring_Hubin", "routes/cryptomonitoring_Hubin/index.jsx"),
@@ -29,5 +38,6 @@ export default [
     route("history", "routes/HybridInverter_Dosmukhamedov/pages/History.jsx"),
     route("settings", "routes/HybridInverter_Dosmukhamedov/pages/Settings.jsx"),
   ]),
+
 
 ] satisfies RouteConfig;

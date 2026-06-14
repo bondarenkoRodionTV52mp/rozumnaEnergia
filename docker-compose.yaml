@@ -112,6 +112,68 @@ services:
 # [Кінець] Монастирний Моніторинг
 
 
+# [Початок] Семенчук Олександр ТВ-22
+services:
+  postgres-semenchuk:
+    image: postgres:16-alpine
+    container_name: postgres_semenchuk
+    ports:
+      - "5432:5432"  # Обов'язково відкриваємо порт назовні, щоб викладач міг перевірити базу через DBeaver
+    environment:
+      POSTGRES_DB: smart_energy_semenchuk
+      POSTGRES_USER: alex_semenchuk
+      POSTGRES_PASSWORD: super_password_10
+    volumes:
+      - smart_energy_semenchuk_pg:/var/lib/postgresql/data
+    networks:
+      - mererza
+    restart: unless-stopped
+
+  mosquitto-semenchuk:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto_semenchuk
+    ports:
+      - "1883:1883"
+    command: >
+      sh -c "echo 'listener 1883\nallow_anonymous false\npassword_file /mosquitto/config/passwd\npersistence false' > /mosquitto/config/mosquitto.conf &&
+      mosquitto_passwd -b -c /mosquitto/config/passwd smartenergy SmartEnergy2024 &&
+      mosquitto_passwd -b /mosquitto/config/passwd subscriber SmartEnergy2024 &&
+      exec mosquitto -c /mosquitto/config/mosquitto.conf"
+    networks:
+      - mererza
+    restart: unless-stopped
+
+  smart-energy-backend-semenchuk:
+    build:
+      context: ./smart-energy-backend
+    container_name: backend_semenchuk
+    ports:
+      - "6010:6010"  # Наш порт бекенда, куди буде стукати фронтенд
+    environment:
+      - DB_HOST=postgres-semenchuk
+      - DB_PORT=5432
+      - DB_NAME=smart_energy_semenchuk
+      - DB_USER=alex_semenchuk
+      - DB_PASSWORD=super_password_10
+      - MQTT_HOST=mosquitto-semenchuk
+      - MQTT_PORT=1883
+      - MQTT_USERNAME=smartenergy
+      - MQTT_PASSWORD=SmartEnergy2024
+    depends_on:
+      - postgres-semenchuk
+      - mosquitto-semenchuk  
+    networks:
+      - mererza
+    restart: unless-stopped
+
+volumes:
+  smart_energy_semenchuk_pg:
+
+networks:
+  mererza:
+    driver: bridge
+# [Кінець] Семенчук Олександр ТВ-22
+
 # START Шевченко Анастасія Володимирівна
 # Functional Stability
 
@@ -163,3 +225,4 @@ networks:
 volumes:
   influxdb_data: # оголошено том для всього проєкту
   mongo_data:
+  smart_energy_semenchuk_pg:

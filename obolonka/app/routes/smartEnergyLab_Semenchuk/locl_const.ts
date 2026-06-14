@@ -1,3 +1,1 @@
-import { API_BASE_URL } from "../../../consts";
-
-export const API_URL = `${API_BASE_URL}:6010/api`;
+export const API_URL = "http://77.47.192.6:6010/api";

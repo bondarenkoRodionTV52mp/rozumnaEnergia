@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Route } from "./+types/index";
 import StatsGrid from "./components/StatsGrid";
-import TelemetryChart, { METRIC_LABELS } from "./components/TelemetryChart";
+import TelemetryChart from "./components/TelemetryChart";
 import NodesTable from "./components/NodesTable";
 import AlertsPanel from "./components/AlertsPanel";
 import ConfigPanel from "./components/ConfigPanel";
@@ -10,7 +10,10 @@ export function meta({}: Route.MetaArgs) {
   return [{ title: "SmartEnergy Lab — IoT Моніторинг" }];
 }
 
-const API = "http://localhost:6010";
+// Автоматичне визначення хоста: якщо запущено на сервері викладача — бере його IP, якщо локально — localhost
+const API = typeof window !== "undefined" 
+  ? `http://${window.location.hostname}:6010` 
+  : "http://localhost:6010";
 
 async function fetchJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API}${path}`);
@@ -36,227 +39,138 @@ interface AlertItem {
   value: number; threshold_min: number | null; threshold_max: number | null;
   severity: "warning" | "critical"; timestamp: string; acknowledged: boolean;
 }
-type ChartPoint = Record<string, string | number>;
-type Tab = "dashboard" | "nodes" | "analytics" | "alerts" | "config";
+interface ChartPoint {
+  timestamp: string;
+  [nodeId: string]: string | number;
+}
 
-const METRICS = Object.keys(METRIC_LABELS) as (keyof typeof METRIC_LABELS)[];
+// ─── Component ────────────────────────────────────────────────────────────────
+export default function SmartEnergyDashboard() {
+  const [activeTab, setActiveTab] = useState<"dashboard" | "nodes" | "alerts" | "config">("dashboard");
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-export default function SmartEnergyLab() {
-  const [activeTab, setActiveTab]   = useState<Tab>("dashboard");
-  const [summary, setSummary]       = useState<Summary | null>(null);
-  const [nodes, setNodes]           = useState<NodeInfo[]>([]);
-  const [latest, setLatest]         = useState<LatestReading[]>([]);
-  const [chartMetric, setChartMetric] = useState<string>("temperature");
-  const [chartData, setChartData]   = useState<ChartPoint[]>([]);
-  const [alerts, setAlerts]         = useState<AlertItem[]>([]);
-  const [alertCount, setAlertCount] = useState(0);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState<string | null>(null);
-  const [lastUpdate, setLastUpdate] = useState("");
+  // Global data states
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [nodes, setNodes] = useState<NodeInfo[]>([]);
+  const [latestReadings, setLatestReadings] = useState<LatestReading[]>([]);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
-    try {
-      const [s, n, l, c, cnt] = await Promise.all([
-        fetchJson<Summary>("/api/stats/summary"),
-        fetchJson<NodeInfo[]>("/api/nodes/"),
-        fetchJson<LatestReading[]>("/api/telemetry/latest"),
-        fetchJson<ChartPoint[]>(`/api/telemetry/multi-chart?metric=${chartMetric}&limit=60`),
-        fetchJson<{ count: number }>("/api/alerts/count"),
-      ]);
-      setSummary(s); setNodes(n); setLatest(l); setChartData(c);
-      setAlertCount(cnt.count);
-      setError(null);
-      setLastUpdate(new Date().toLocaleTimeString("uk"));
-    } catch {
-      setError("Не вдалося підключитися до бекенду.");
-    } finally {
-      setLoading(false);
-    }
-  }, [chartMetric]);
-
-  const refreshAlerts = useCallback(async () => {
-    try {
-      const data = await fetchJson<AlertItem[]>("/api/alerts/");
-      setAlerts(data);
-      const cnt = await fetchJson<{ count: number }>("/api/alerts/count");
-      setAlertCount(cnt.count);
-    } catch {}
+  // Partial refreshers
+  const refreshDashboard = useCallback(() => {
+    Promise.all([
+      fetchJson<Summary>("/api/telemetry/summary"),
+      fetchJson<LatestReading[]>("/api/telemetry/latest")
+    ]).then(([s, l]) => {
+      setSummary(s);
+      setLatestReadings(l);
+    }).catch(console.error);
   }, []);
 
+  const refreshNodes = useCallback(() => {
+    fetchJson<NodeInfo[]>("/api/nodes").then(setNodes).catch(console.error);
+  }, []);
+
+  const refreshAlerts = useCallback(() => {
+    fetchJson<AlertItem[]>("/api/alerts?active_only=true").then(setAlerts).catch(console.error);
+  }, []);
+
+  // Initial full load & global interval ticker
   useEffect(() => {
-    refresh();
-    const id = setInterval(refresh, 5000);
+    setLoading(true);
+    Promise.all([
+      fetchJson<Summary>("/api/telemetry/summary"),
+      fetchJson<NodeInfo[]>("/api/nodes"),
+      fetchJson<LatestReading[]>("/api/telemetry/latest"),
+      fetchJson<AlertItem[]>("/api/alerts?active_only=true")
+    ]).then(([s, n, l, a]) => {
+      setSummary(s);
+      setNodes(n);
+      setLatestReadings(l);
+      setAlerts(a);
+    }).catch(console.error).finally(() => setLoading(false));
+
+    const id = setInterval(() => {
+      refreshDashboard();
+      if (activeTab === "nodes") refreshNodes();
+      if (activeTab === "alerts") refreshAlerts();
+    }, 5000);
+
     return () => clearInterval(id);
-  }, [refresh]);
-
-  useEffect(() => {
-    if (activeTab === "alerts") refreshAlerts();
-  }, [activeTab, refreshAlerts]);
-
-  // ─── Tabs config ────────────────────────────────────────────────────────
-  const tabs: { key: Tab; label: string; icon: string; badge?: number }[] = [
-    { key: "dashboard",  label: "Дашборд",      icon: "📊" },
-    { key: "nodes",      label: "Вузли",         icon: "📡" },
-    { key: "analytics",  label: "Аналітика",     icon: "📈" },
-    { key: "alerts",     label: "Сповіщення",    icon: "🔔", badge: alertCount },
-    { key: "config",     label: "Налаштування",  icon: "⚙️" },
-  ];
+  }, [activeTab, refreshDashboard, refreshNodes, refreshAlerts]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-100 font-sans">
       {/* Header */}
-      <header className="bg-gradient-to-r from-slate-800 to-slate-700 text-white px-6 py-4 shadow-lg">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <header className="bg-white shadow border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="text-3xl">⚡</span>
+            <span className="text-3xl">🏭</span>
             <div>
-              <h1 className="text-xl font-bold leading-tight">SmartEnergy Lab</h1>
-              <p className="text-slate-300 text-xs">Моніторинг IoT-вузлів у реальному часі</p>
+              <h1 className="text-xl font-bold text-gray-900">SmartEnergy Lab</h1>
+              <p className="text-xs text-gray-500">Система IoT моніторингу телеметрії промислових об'єктів</p>
             </div>
           </div>
-          <div className="flex items-center gap-4 text-sm">
-            {alertCount > 0 && (
-              <button onClick={() => setActiveTab("alerts")}
-                className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 px-3 py-1 rounded-full text-xs font-semibold transition-colors">
-                🔔 {alertCount} сповіщень
+
+          {/* Navigation tabs */}
+          <nav className="flex bg-gray-100 p-1 rounded-xl border border-gray-200">
+            {(["dashboard", "nodes", "alerts", "config"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                  activeTab === tab
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                {tab === "dashboard" && "Панель управління"}
+                {tab === "nodes" && "Вузли мережі"}
+                {tab === "alerts" && `Сповіщення (${alerts.length})`}
+                {tab === "config" && "Налаштування"}
               </button>
-            )}
-            <span className={`flex items-center gap-1 text-slate-300 ${error ? "text-red-400" : ""}`}>
-              <span className={`w-2 h-2 rounded-full inline-block ${error ? "bg-red-400" : "bg-emerald-400 animate-pulse"}`} />
-              {error ? "Немає з'єднання" : `Оновлено: ${lastUpdate}`}
-            </span>
-          </div>
+            ))}
+          </nav>
         </div>
       </header>
 
-      {error && (
-        <div className="bg-red-50 border-l-4 border-red-400 px-6 py-3 text-red-700 text-sm">{error}</div>
-      )}
-
-      {/* Tabs */}
-      <nav className="bg-white border-b border-gray-200 px-6">
-        <div className="max-w-7xl mx-auto flex gap-0">
-          {tabs.map(({ key, label, icon, badge }) => (
-            <button key={key} onClick={() => setActiveTab(key)}
-              className={`relative flex items-center gap-2 px-5 py-4 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === key
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}>
-              {icon} {label}
-              {badge != null && badge > 0 && (
-                <span className="absolute -top-0.5 right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                  {badge > 9 ? "9+" : badge}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      </nav>
-
-      {/* Content */}
-      <main className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-
-        {/* ── Dashboard ── */}
+      {/* Main content viewports */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* ── Dashboard (Charts & KPIs) ── */}
         {activeTab === "dashboard" && (
-          <>
+          <div className="space-y-8">
             <StatsGrid summary={summary} />
-            <div className="bg-white rounded-2xl shadow p-5">
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-                <h2 className="text-lg font-semibold text-gray-800">
-                  {METRIC_LABELS[chartMetric as keyof typeof METRIC_LABELS] ?? chartMetric}
-                </h2>
-                <div className="flex gap-2 flex-wrap">
-                  {METRICS.map(m => (
-                    <button key={m} onClick={() => setChartMetric(m)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                        chartMetric === m ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                      }`}>
-                      {METRIC_LABELS[m as keyof typeof METRIC_LABELS]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <TelemetryChart data={chartData} metric={chartMetric} loading={loading} />
-              <p className="text-xs text-gray-400 mt-2">Останні 60 вимірювань · оновлення кожні 5 секунд</p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <AnalyticsCard metric="power" />
+              <AnalyticsCard metric="temperature" />
             </div>
-            <div className="bg-white rounded-2xl shadow p-5">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Поточні показники вузлів</h2>
-              <NodesTable nodes={nodes} latest={latest} loading={loading} />
-            </div>
-          </>
+          </div>
         )}
 
-        {/* ── Nodes ── */}
+        {/* ── Nodes Table ── */}
         {activeTab === "nodes" && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-gray-800">Список IoT-вузлів</h2>
-            {loading ? (
-              <div className="grid md:grid-cols-2 gap-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="h-40 bg-gray-100 animate-pulse rounded-2xl" />
-                ))}
+          <div className="bg-white rounded-2xl shadow border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800">Підключені IoT пристрої</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Перелік активних контролерів обліку</p>
               </div>
-            ) : (
-              <div className="grid md:grid-cols-2 gap-4">
-                {nodes.map(node => {
-                  const r = latest.find(l => l.node_id === node.id);
-                  const online = node.status === "online";
-                  return (
-                    <div key={node.id} className="bg-white rounded-2xl shadow p-5">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h3 className="font-bold text-gray-900 text-lg">{node.name}</h3>
-                          <p className="text-gray-500 text-sm">{node.location} · {node.id}</p>
-                        </div>
-                        <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          online ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"
-                        }`}>
-                          <span className={`w-2 h-2 rounded-full ${online ? "bg-emerald-500 animate-pulse" : "bg-gray-400"}`} />
-                          {online ? "Онлайн" : "Офлайн"}
-                        </span>
-                      </div>
-                      {r && (
-                        <div className="grid grid-cols-3 gap-2">
-                          {[
-                            { label: "Темп.",   value: `${r.temperature} °C`,         warn: r.temperature > 35 },
-                            { label: "Напруга", value: `${r.voltage} В` },
-                            { label: "Струм",   value: `${r.current_a} А` },
-                            { label: "Потужн.", value: `${r.power.toFixed(0)} Вт` },
-                            { label: "Енергія", value: `${r.energy.toFixed(3)} кВт·год` },
-                            { label: "Частота", value: `${r.frequency} Гц` },
-                          ].map(({ label, value, warn }) => (
-                            <div key={label} className="bg-gray-50 rounded-lg p-2 text-center">
-                              <div className="text-xs text-gray-400">{label}</div>
-                              <div className={`text-sm font-semibold ${warn ? "text-red-600" : "text-gray-800"}`}>{value}</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+              <button onClick={refreshNodes}
+                className="text-sm px-3 py-1.5 border border-gray-200 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-600 transition-colors">
+                ↻ Оновити таблицю
+              </button>
+            </div>
+            <NodesTable nodes={nodes} latest={latestReadings} loading={loading} />
           </div>
         )}
 
-        {/* ── Analytics ── */}
-        {activeTab === "analytics" && (
-          <div className="space-y-6">
-            <h2 className="text-lg font-semibold text-gray-800">Аналітика по метриках</h2>
-            {(["temperature", "power", "voltage", "current_a"] as const).map(metric => (
-              <AnalyticsCard key={metric} metric={metric} />
-            ))}
-          </div>
-        )}
-
-        {/* ── Alerts ── */}
+        {/* ── Alerts Panel ── */}
         {activeTab === "alerts" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-800">Сповіщення</h2>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800">Журнал тривог та сповіщень</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Порушення критичних лімітів вимірювань</p>
+              </div>
               <button onClick={refreshAlerts}
                 className="text-sm text-blue-500 hover:underline">↻ Оновити</button>
             </div>
@@ -267,7 +181,10 @@ export default function SmartEnergyLab() {
         {/* ── Config ── */}
         {activeTab === "config" && (
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-gray-800">Конфігурація мережевого з'єднання</h2>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-800">Конфігурація мережевого з'єднання</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Параметри підключення до MQTT та реляційної СКБД</p>
+            </div>
             <ConfigPanel />
           </div>
         )}
@@ -279,19 +196,25 @@ export default function SmartEnergyLab() {
 // ─── Per-metric analytics card ────────────────────────────────────────────────
 function AnalyticsCard({ metric }: { metric: string }) {
   const [data, setData] = useState<ChartPoint[]>([]);
+  
   useEffect(() => {
     const load = () =>
       fetchJson<ChartPoint[]>(`/api/telemetry/multi-chart?metric=${metric}&limit=100`)
-        .then(setData).catch(() => {});
+        .then(setData)
+        .catch(() => {});
     load();
     const id = setInterval(load, 5000);
     return () => clearInterval(id);
   }, [metric]);
+
+  const labels: Record<string, string> = {
+    power: "Сумарна споживана потужність вузлів (Вт)",
+    temperature: "Температурні тренди модулів (°C)"
+  };
+
   return (
-    <div className="bg-white rounded-2xl shadow p-5">
-      <h3 className="font-semibold text-gray-800 mb-4">
-        {METRIC_LABELS[metric as keyof typeof METRIC_LABELS] ?? metric}
-      </h3>
+    <div className="bg-white rounded-2xl shadow border border-gray-200 p-5">
+      <h3 className="font-semibold text-gray-800 mb-4">{labels[metric] ?? metric}</h3>
       <TelemetryChart data={data} metric={metric} />
     </div>
   );

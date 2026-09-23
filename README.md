@@ -25,7 +25,8 @@
 `tv52mpshevchenkoo/smartenergy-docs-storage:latest` разом з ізольованими
 MongoDB і Redis. Swagger UI після запуску доступний на
 `http://localhost:6066/docs`, health check — на
-`http://localhost:6066/api/v1/health`.
+`http://localhost:6066/api/v1/health`. У frontend також є сторінка
+`/docs-storage-ShevchenkoO`, яка вбудовує Swagger UI.
 
 Перед першим запуском скопіюйте `.env.example` до `.env` і вкажіть значення,
 що містять щонайменше 32 символи для `DOCUMENT_STORAGE_SECRET_KEY` та

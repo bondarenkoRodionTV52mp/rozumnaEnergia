@@ -156,6 +156,41 @@ services:
     networks:
       - mererza
 
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345678
+      POSTGRES_DB: smartenergy
+    ports:
+      - "6033:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+  hivemq:
+    image: hivemq/hivemq4
+    ports:
+      - "6034:1883"
+    restart: always
+
+  backend_barabash:
+    image: barabashmarinaa/smartenergy-backend:latest
+    ports:
+      - "6014:8000"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=12345678
+      - POSTGRES_DB=smartenergy
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - MQTT_BROKER=hivemq
+      - MQTT_PORT=1883
+    depends_on:
+      - postgres
+      - hivemq
+    restart: always
+
 networks:
   mererza:
     driver: bridge
@@ -163,3 +198,4 @@ networks:
 volumes:
   influxdb_data: # оголошено том для всього проєкту
   mongo_data:
+  postgres_data:

@@ -1,13 +1,26 @@
 import { Link } from "react-router";
+import { useEffect, useState } from "react";
 import type { Route } from "./+types/index";
 
-const swaggerUrl = "http://localhost:6066/docs";
+const documentStoragePort = "6066";
+
+function getSwaggerUrl() {
+  const url = new URL("/docs", window.location.origin);
+  url.port = documentStoragePort;
+  return url.toString();
+}
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Document Storage API | Smart Energy Lab" }];
 }
 
 export default function DocumentStorageDocs() {
+  const [swaggerUrl, setSwaggerUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSwaggerUrl(getSwaggerUrl());
+  }, []);
+
   return (
     <main className="min-h-screen bg-slate-100 p-4 sm:p-6">
       <div className="mx-auto max-w-7xl">
@@ -27,22 +40,30 @@ export default function DocumentStorageDocs() {
             >
               На головну
             </Link>
-            <a
-              className="rounded bg-violet-700 px-4 py-2 font-medium text-white hover:bg-violet-800"
-              href={swaggerUrl}
-              rel="noreferrer"
-              target="_blank"
-            >
-              Відкрити Swagger
-            </a>
+            {swaggerUrl && (
+              <a
+                className="rounded bg-violet-700 px-4 py-2 font-medium text-white hover:bg-violet-800"
+                href={swaggerUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Відкрити Swagger
+              </a>
+            )}
           </div>
         </div>
 
-        <iframe
-          className="h-[calc(100vh-10rem)] min-h-[36rem] w-full rounded border border-slate-300 bg-white shadow"
-          src={swaggerUrl}
-          title="Document Storage API Swagger UI"
-        />
+        {swaggerUrl ? (
+          <iframe
+            className="h-[calc(100vh-10rem)] min-h-[36rem] w-full rounded border border-slate-300 bg-white shadow"
+            src={swaggerUrl}
+            title="Document Storage API Swagger UI"
+          />
+        ) : (
+          <div className="flex min-h-[36rem] items-center justify-center rounded border border-slate-300 bg-white text-slate-600 shadow">
+            Завантаження Swagger UI...
+          </div>
+        )}
       </div>
     </main>
   );

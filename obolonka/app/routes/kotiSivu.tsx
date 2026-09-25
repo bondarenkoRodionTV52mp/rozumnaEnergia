@@ -43,6 +43,11 @@ export default function Home() {
         <NavLink className="font-bold hover:text-lime-700 transition" to="HybridInverter_Dosmukhamedov">
           Гібридний інвертор(Досмухамедов)
         </NavLink >
+
+
+        <NavLink to="/effective-use">
+          Ефективне використання (Барабаш)
+        </NavLink>
         <NavLink
           className="font-bold text-violet-800 bg-white px-4 py-2 rounded shadow hover:bg-violet-50 hover:text-violet-600 transition"
           to="/docs-storage-ShevchenkoO"
@@ -70,6 +75,7 @@ export default function Home() {
       <h2 className="text-xl text-gray-700">
         Navigation panel above contains links to all subsystems
       </h2>
+      
     </div>
   );
 }

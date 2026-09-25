@@ -41,4 +41,11 @@ export default [
     "routes/DataManager_Ryzhenko/App.jsx"
   ),
 
+  route("effective-use", "routes/effectiveUse/App.tsx", [
+    route("", "routes/effectiveUse/pages/RealtimePage.tsx"),
+    route("history", "routes/effectiveUse/pages/HistoryPage.tsx"),
+    route("analytics", "routes/effectiveUse/pages/AnalyticsPage.tsx"),
+    route("forecast", "routes/effectiveUse/pages/ForecastPage.tsx"),
+  ]),
+
 ] satisfies RouteConfig;

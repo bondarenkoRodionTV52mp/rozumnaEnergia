@@ -175,7 +175,7 @@ services:
     restart: always
 
   backend_barabash:
-    image: barabashmarinaa/smartenergy-backend:latest
+    image: barabashmarinaaa/smartenergy-backend:latest
     ports:
       - "6014:8000"
     environment:

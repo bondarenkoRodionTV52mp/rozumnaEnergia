@@ -1,9 +1,21 @@
+x-cybersecurity-service: &cybersecurity-service
+  image: rostyslavkrotenko/cybersecurity-smartenergy:latest
+  restart: unless-stopped
+  volumes:
+    - cybersecurity-data:/work/data/integration
+    - cybersecurity-output:/work/out
+  networks:
+    - default
+    - mererza
+
 services:
   obolonka:
     build:
       context: ./obolonka
     ports:
       - "5173:3000"
+    environment:
+      CYBERSECURITY_API_URL: http://cybersecurity-api:8000/api
     networks:
       - mererza
 
@@ -11,7 +23,7 @@ services:
     # build: ./backend
     image: dkolodko/diplom-backend:latest
     ports:
-      - "6005:8000" 
+      - "6005:8000"
     restart: always
 
   backend_troian:
@@ -36,13 +48,13 @@ services:
   smartenergy-backend:
     image: puvlichok/smartenergy-backend
     ports:
-    - "6007:6007"
+      - "6007:6007"
 
-
-# [Початок] Монастирний Моніторинг
+  # [Початок] Монастирний Моніторинг
   influxdb:
     image: influxdb:2-alpine
-    ports: ["6029:8086"]
+    ports:
+      - "6029:8086"
     volumes:
       - influxdb_data:/var/lib/influxdb2
     environment:
@@ -109,19 +121,24 @@ services:
       - INFLUX_BUCKET=smart_energy
       - PORT=6032
       - DATA_SAVE_TOPIC=sensor-data
-# [Кінець] Монастирний Моніторинг
+  # [Кінець] Монастирний Моніторинг
 
-
-# START Шевченко Анастасія Володимирівна
-# Functional Stability
-
+  # START Шевченко Анастасія Володимирівна
+  # Functional Stability
   functional-stability-shevchenko:
     image: mistressmorgana/energy-backend:latest
     ports:
       - "6040:8000"
     restart: unless-stopped
+  # END Шевченко Анастасія Володимирівна
 
-# END Шевченко Анастасія Володимирівна
+# START Ryzhenko Data Manager Demo
+  data-manager-ryzhenko-demo:
+    image: gr1sto/data-manager-ryzhenko-demo:latest
+    ports:
+      - "6023:6023"
+    restart: always
+# END Ryzhenko Data Manager Demo
 
   # START Шевченко Олександр Олександрович
   # Document Storage API
@@ -194,8 +211,8 @@ services:
   backend-kravchenko:
     image: nastensii/smart-energy-backend:latest
     container_name: smart_energy_api_kravchenko
-    ports:
-      - "6006:8000"
+    expose:
+      - "8000"
     environment:
       - INFLUX_URL=http://influxdb:8086
       - INFLUX_TOKEN=secretpassword_smartenergy6
@@ -213,7 +230,7 @@ services:
       - mererza
     depends_on:
       - mongodb
-  
+
   mongodb:
     image: mongo:6
     restart: always
@@ -224,7 +241,219 @@ services:
     networks:
       - mererza
 
+  # [Початок] Кротенко — Cybersecurity SmartEnergy
+
+  cybersecurity-storage-init:
+    <<: *cybersecurity-service
+    container_name: cybersecurity-storage-init
+    restart: "no"
+    command:
+      - python
+      - -m
+      - src.shared.storage_init
+    environment:
+      CYBERSECURITY_STORAGE_GENERATION: "2026-09-20-clean-runtime-v1"
+
+  cybersecurity-gateway-iot:
+    <<: *cybersecurity-service
+    container_name: cybersecurity-gateway-iot
+    command:
+      - python
+      - -m
+      - src.gateway
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --log-level
+      - info
+    environment:
+      GATEWAY_SERVICE_ID: iot-gateway
+      GATEWAY_COMPONENT: gateway
+      GATEWAY_UPSTREAM_URL: http://backend-kravchenko:8000
+      GATEWAY_EVENT_LOG_PATH: /work/data/integration/gateways/iot-events.jsonl
+      GATEWAY_STATE_PATH: /work/data/integration/gateways/iot-state.json
+      GATEWAY_CONTROL_TOKEN: "${GATEWAY_CONTROL_TOKEN:?Set GATEWAY_CONTROL_TOKEN in .env}"
+      GATEWAY_RATE_PER_SECOND: "25"
+      GATEWAY_BURST_CAPACITY: "50"
+      GATEWAY_COMMAND_RATE_PER_MINUTE: "12"
+      GATEWAY_VIOLATION_THRESHOLD: "10"
+      GATEWAY_VIOLATION_WINDOW_SEC: "30"
+      GATEWAY_BLOCK_TTL_SEC: "120"
+      GATEWAY_UPSTREAM_TIMEOUT_SEC: "3"
+      GATEWAY_CIRCUIT_FAILURE_THRESHOLD: "5"
+      GATEWAY_CIRCUIT_RECOVERY_TIMEOUT_SEC: "15"
+      GATEWAY_STALE_CACHE_TTL_SEC: "30"
+    ports:
+      - "6006:8080"
+    depends_on:
+      cybersecurity-storage-init:
+        condition: service_completed_successfully
+      backend-kravchenko:
+        condition: service_started
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - --fail
+        - --silent
+        - http://localhost:8080/_cybersecurity/healthz
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 5
+
+  cybersecurity-collector:
+    <<: *cybersecurity-service
+    container_name: cybersecurity-collector
+    command:
+      - python
+      - -m
+      - src.collector
+    environment:
+      COLLECTOR_OUTPUT_PATH: /work/data/integration/collected_events.jsonl
+      COLLECTOR_GATEWAY_ENABLED: "true"
+      COLLECTOR_GATEWAY_EVENT_LOGS: >-
+        iot-gateway|/work/data/integration/gateways/iot-events.jsonl|/work/data/integration/checkpoints/gateway-iot.json
+      COLLECTOR_HTTP_ENABLED: "true"
+      COLLECTOR_HTTP_TARGETS: >-
+        gateway-iot-health|gateway|status|http://cybersecurity-gateway-iot:8080/_cybersecurity/healthz
+      COLLECTOR_HTTP_TIMEOUT_SEC: "2"
+      COLLECTOR_HTTP_POLL_INTERVAL_SEC: "10"
+      COLLECTOR_MQTT_ENABLED: "true"
+      COLLECTOR_MQTT_HOST: mosquitto
+      COLLECTOR_MQTT_PORT: "1883"
+      COLLECTOR_MQTT_TOPICS: sensor/data
+      COLLECTOR_MQTT_QOS: "1"
+      COLLECTOR_MQTT_USERNAME: ingestor
+      COLLECTOR_MQTT_PASSWORD: ingestor_pass
+      COLLECTOR_MQTT_QUARANTINE_ENABLED: "true"
+      COLLECTOR_MQTT_QUARANTINE_PATH: /work/data/integration/quarantine/mqtt-events.jsonl
+    depends_on:
+      cybersecurity-gateway-iot:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+
+  cybersecurity-analyzer:
+    <<: *cybersecurity-service
+    container_name: cybersecurity-analyzer
+    environment:
+      ANALYZER_EVENT_CHECKPOINT_PATH: /work/data/integration/checkpoints/analyzer-events.json
+      ANALYZER_ACK_CHECKPOINT_PATH: /work/data/integration/checkpoints/analyzer-acks.json
+    command:
+      - python
+      - -m
+      - src.analyzer
+      - --input
+      - /work/data/integration/collected_events.jsonl
+      - --watch
+      - --poll-interval-ms
+      - "1000"
+      - --rolling-window-min
+      - "5"
+      - --out-dir
+      - /work/out
+      - --policies
+      - all
+      - --actions-path
+      - /work/data/integration/actions.jsonl
+      - --applied-path
+      - /work/data/integration/actions_applied.jsonl
+      - --integration-mode
+      - active
+      - --log-level
+      - INFO
+    depends_on:
+      cybersecurity-collector:
+        condition: service_started
+
+  cybersecurity-control-iot:
+    <<: *cybersecurity-service
+    container_name: cybersecurity-control-iot
+    command:
+      - python
+      - -m
+      - src.control
+    environment:
+      GATEWAY_CONTROL_URL: http://cybersecurity-gateway-iot:8080
+      GATEWAY_CONTROL_TOKEN: "${GATEWAY_CONTROL_TOKEN:?Set GATEWAY_CONTROL_TOKEN in .env}"
+      GATEWAY_CONTROL_TIMEOUT_SECONDS: "5"
+      CONTROL_ACTIONS_PATH: /work/data/integration/actions.jsonl
+      CONTROL_APPLIED_PATH: /work/data/integration/actions_applied.jsonl
+      CONTROL_IDEMPOTENCY_PATH: /work/data/integration/control/iot-idempotency.sqlite3
+      CONTROL_ACTIONS_CHECKPOINT_PATH: /work/data/integration/checkpoints/control-iot-actions.json
+      CONTROL_RECOVERY_SCHEDULE_PATH: /work/data/integration/control/iot-recovery-schedule.json
+      CONTROL_GATEWAY_SERVICE_ID: iot-gateway
+      CONTROL_ACCEPT_GENERIC_ACTIONS: "false"
+      CONTROL_POLL_INTERVAL_SEC: "0.5"
+      CONTROL_DEFAULT_RATE_PER_SECOND: "25"
+      CONTROL_DEFAULT_BURST_CAPACITY: "50"
+      CONTROL_ALLOWED_ISOLATION_COMPONENTS: gateway,api,edge,iot-gateway
+    depends_on:
+      cybersecurity-gateway-iot:
+        condition: service_healthy
+      cybersecurity-analyzer:
+        condition: service_started
+
+  cybersecurity-api:
+    <<: *cybersecurity-service
+    container_name: cybersecurity-api
+    command:
+      - python
+      - -m
+      - src.api
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    environment:
+      SMARTENERGY_LIVE_MODE: "1"
+      CYBERSECURITY_INTEGRATION_MODE: active
+      CYBERSECURITY_SNAPSHOT_SOURCE: real-collector
+      CYBERSECURITY_EVENTS_PATH: /work/data/integration/collected_events.jsonl
+      CYBERSECURITY_MQTT_QUARANTINE_PATH: /work/data/integration/quarantine/mqtt-events.jsonl
+      CYBERSECURITY_EXTERNAL_READS: "true"
+      CYBERSECURITY_ADAPTER_TIMEOUT_SEC: "2"
+      CYBERSECURITY_ACTIVE_GATEWAYS: >-
+        iot-gateway|Захищений API Smart Energy|http://cybersecurity-gateway-iot:8080/_cybersecurity/state|6006|Smart Energy API
+      CYBERSECURITY_GATEWAY_URL: >-
+        http://cybersecurity-gateway-iot:8080/api/v1/telemetry/latest?limit=50
+      CYBERSECURITY_BMS_URL: http://backend-service:8000/api/data
+      CYBERSECURITY_INVERTER_URL: http://backend_dosmukhamedov:6050/api/settings
+      CYBERSECURITY_HISTORY_URL: http://history-api:6032/api/status
+      CYBERSECURITY_INFLUX_URL: http://influxdb:8086/health
+      CYBERSECURITY_MONGO_HOST: mongodb
+      CYBERSECURITY_MONGO_PORT: "27017"
+      CYBERSECURITY_MQTT_HOST: mosquitto
+      CYBERSECURITY_MQTT_WS_PORT: "9001"
+      CYBERSECURITY_STABILITY_HOST: functional-stability-shevchenko
+      CYBERSECURITY_STABILITY_PORT: "8000"
+      CYBERSECURITY_PUBLIC_PORT: "6008"
+      CYBERSECURITY_CORS_ORIGINS: http://localhost:5173,http://0.0.0.0:5173,http://77.47.192.6:5173
+    ports:
+      - "6008:8000"
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - --fail
+        - --silent
+        - http://localhost:8000/healthz
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    depends_on:
+      cybersecurity-analyzer:
+        condition: service_started
+
+  # [Кінець] Кротенко — Cybersecurity SmartEnergy
+
 networks:
+  default:
+    driver: bridge
+
   mererza:
     driver: bridge
   document-storage:
@@ -235,3 +464,9 @@ volumes:
   mongo_data:
   document_storage_mongo_data:
   document_storage_redis_data:
+
+  cybersecurity-data:
+    name: smartenergy-cybersecurity-data
+
+  cybersecurity-output:
+    name: smartenergy-cybersecurity-output

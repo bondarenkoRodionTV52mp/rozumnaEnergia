@@ -49,6 +49,19 @@ export default function Home() {
         >
           Document Storage API (Шевченко)
         </NavLink>
+       <NavLink
+          className="font-bold hover:text-lime-700 transition"
+          to="DataManager_Ryzhenko"
+        >
+          Керування даними (Ryzhenko)
+        </NavLink>
+
+        <NavLink
+          className="font-bold text-cyan-900 bg-white px-4 py-2 rounded shadow hover:bg-cyan-50 hover:text-cyan-700 transition"
+          to="cybersecurity"
+        >
+          Кіберзахист (Кротенко)
+        </NavLink>
       </nav>
 
       <h1 className="text-4xl mb-4 mt-6">

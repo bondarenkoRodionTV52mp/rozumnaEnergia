@@ -40,9 +40,13 @@ export default function Home() {
           Аккумулятор (Колодько)
         </NavLink >
 
-        <NavLink className="font-bold hover:text-lime-700 transition" to="HybridInverter_Dosmukhamedov">
-          Гібридний інвертор(Досмухамедов)
-        </NavLink >
+       <NavLink
+          className="font-bold hover:text-lime-700 transition"
+          to="DataManager_Ryzhenko"
+        >
+          Керування даними (Ryzhenko)
+        </NavLink>
+
         <NavLink
           className="font-bold text-cyan-900 bg-white px-4 py-2 rounded shadow hover:bg-cyan-50 hover:text-cyan-700 transition"
           to="cybersecurity"

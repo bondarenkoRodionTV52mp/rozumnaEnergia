@@ -31,5 +31,10 @@ export default [
     route("history", "routes/HybridInverter_Dosmukhamedov/pages/History.jsx"),
     route("settings", "routes/HybridInverter_Dosmukhamedov/pages/Settings.jsx"),
   ]),
+  
+  route(
+    "DataManager_Ryzhenko",
+    "routes/DataManager_Ryzhenko/App.jsx"
+  ),
 
 ] satisfies RouteConfig;

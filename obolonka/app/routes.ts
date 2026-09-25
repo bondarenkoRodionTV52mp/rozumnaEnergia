@@ -15,6 +15,8 @@ export default [
 
   route("iot-gateway", "routes/iotGateway/index.jsx"),
 
+  route("cybersecurity", "routes/cybersecurity_Krotenko/index.tsx"),
+
   route("cryptomonitoring_Hubin", "routes/cryptomonitoring_Hubin/index.jsx"),
   route(
     "functional-stability-shevchenko",
@@ -22,6 +24,10 @@ export default [
   ),
   route("smart-energy", "routes/smartEnergyLab/App.jsx"),
   route("Battery_Kolodko", "routes/Battery_Kolodko/BatteryManagement.jsx"),
+  route(
+    "docs-storage-ShevchenkoO",
+    "routes/DocsStorage_ShevchenkoO/index.tsx"
+  ),
  
   // HybridInverter with nested routes
   route("HybridInverter_Dosmukhamedov", "routes/HybridInverter_Dosmukhamedov/App.jsx", [
@@ -29,6 +35,11 @@ export default [
     route("history", "routes/HybridInverter_Dosmukhamedov/pages/History.jsx"),
     route("settings", "routes/HybridInverter_Dosmukhamedov/pages/Settings.jsx"),
   ]),
+  
+  route(
+    "DataManager_Ryzhenko",
+    "routes/DataManager_Ryzhenko/App.jsx"
+  ),
 
   route("effective-use", "routes/effectiveUse/App.tsx", [
     route("", "routes/effectiveUse/pages/RealtimePage.tsx"),

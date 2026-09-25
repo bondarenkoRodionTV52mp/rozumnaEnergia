@@ -16,3 +16,28 @@
 **HeatFlow:** "Інструментальні засоби розрахунків схем тепловодопостачання приміщень SmartEnergy Lab"
 
 ---
+
+### ТВ-52 Шевченко Олександр
+**Document Storage API:** уніфікований REST API для збереження документів,
+телеметрії, конфігурацій та результатів моделювання.
+
+Сервіс запускається з Docker Hub-образу
+`tv52mpshevchenkoo/smartenergy-docs-storage:latest` разом з ізольованими
+MongoDB і Redis. Swagger UI після запуску доступний на
+`http://localhost:6066/docs`, health check — на
+`http://localhost:6066/api/v1/health`. У frontend також є сторінка
+`/docs-storage-ShevchenkoO`, яка вбудовує Swagger UI.
+
+Перед першим запуском скопіюйте `.env.example` до `.env` і вкажіть значення,
+що містять щонайменше 32 символи для `DOCUMENT_STORAGE_SECRET_KEY` та
+щонайменше 12 символів для `DOCUMENT_STORAGE_ADMIN_PASSWORD`:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Після цього запустіть модуль:
+
+```powershell
+docker compose up -d document-storage-api
+```

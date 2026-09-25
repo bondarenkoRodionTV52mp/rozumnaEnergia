@@ -140,6 +140,74 @@ services:
     restart: always
 # END Ryzhenko Data Manager Demo
 
+  # START Шевченко Олександр Олександрович
+  # Document Storage API
+  document-storage-api:
+    image: tv52mpshevchenkoo/smartenergy-docs-storage:latest
+    ports:
+      - "6066:8000"
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      MONGO_URI: mongodb://document-storage-mongo:27017
+      MONGO_DB: document_storage
+      REDIS_URL: redis://document-storage-redis:6379/0
+      SECRET_KEY: "${DOCUMENT_STORAGE_SECRET_KEY:?Set DOCUMENT_STORAGE_SECRET_KEY in .env}"
+      CORS_ORIGINS: http://localhost:5173
+      BOOTSTRAP_ADMIN_ENABLED: "true"
+      BOOTSTRAP_ADMIN_USERNAME: "${DOCUMENT_STORAGE_ADMIN_USERNAME:-admin}"
+      BOOTSTRAP_ADMIN_PASSWORD: "${DOCUMENT_STORAGE_ADMIN_PASSWORD:?Set DOCUMENT_STORAGE_ADMIN_PASSWORD in .env}"
+      RATE_LIMIT_ENABLED: "true"
+    depends_on:
+      document-storage-mongo:
+        condition: service_healthy
+      document-storage-redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health')",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    networks:
+      - document-storage
+
+  document-storage-mongo:
+    image: mongo:8.0.32
+    restart: unless-stopped
+    volumes:
+      - document_storage_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand('ping').ok"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - document-storage
+
+  document-storage-redis:
+    image: redis:8.2.10-alpine
+    restart: unless-stopped
+    volumes:
+      - document_storage_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - document-storage
+# END Шевченко Олександр Олександрович
+
   backend-kravchenko:
     image: nastensii/smart-energy-backend:latest
     container_name: smart_energy_api_kravchenko
@@ -388,10 +456,14 @@ networks:
 
   mererza:
     driver: bridge
+  document-storage:
+    driver: bridge
 
 volumes:
   influxdb_data: # оголошено том для всього проєкту
   mongo_data:
+  document_storage_mongo_data:
+  document_storage_redis_data:
 
   cybersecurity-data:
     name: smartenergy-cybersecurity-data

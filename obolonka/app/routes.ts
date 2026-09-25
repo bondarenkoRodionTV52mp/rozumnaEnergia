@@ -24,6 +24,10 @@ export default [
   ),
   route("smart-energy", "routes/smartEnergyLab/App.jsx"),
   route("Battery_Kolodko", "routes/Battery_Kolodko/BatteryManagement.jsx"),
+  route(
+    "docs-storage-ShevchenkoO",
+    "routes/DocsStorage_ShevchenkoO/index.tsx"
+  ),
  
   // HybridInverter with nested routes
   route("HybridInverter_Dosmukhamedov", "routes/HybridInverter_Dosmukhamedov/App.jsx", [

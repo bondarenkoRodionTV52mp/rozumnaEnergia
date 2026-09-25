@@ -15,6 +15,8 @@ export default [
 
   route("iot-gateway", "routes/iotGateway/index.jsx"),
 
+  route("cybersecurity", "routes/cybersecurity_Krotenko/index.tsx"),
+
   route("cryptomonitoring_Hubin", "routes/cryptomonitoring_Hubin/index.jsx"),
   route(
     "functional-stability-shevchenko",
@@ -33,5 +35,10 @@ export default [
     route("history", "routes/HybridInverter_Dosmukhamedov/pages/History.jsx"),
     route("settings", "routes/HybridInverter_Dosmukhamedov/pages/Settings.jsx"),
   ]),
+  
+  route(
+    "DataManager_Ryzhenko",
+    "routes/DataManager_Ryzhenko/App.jsx"
+  ),
 
 ] satisfies RouteConfig;

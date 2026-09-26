@@ -28,6 +28,10 @@ export default [
     "docs-storage-ShevchenkoO",
     "routes/DocsStorage_ShevchenkoO/index.tsx"
   ),
+  route(
+    "relational-warehouse-Onopriienko",
+    "routes/RelationalWarehouse_Onopriienko/index.tsx"
+  ),
  
   // HybridInverter with nested routes
   route("HybridInverter_Dosmukhamedov", "routes/HybridInverter_Dosmukhamedov/App.jsx", [

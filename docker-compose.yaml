@@ -252,6 +252,12 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d smartenergy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   hivemq:
     image: hivemq/hivemq4
@@ -275,6 +281,24 @@ services:
       - postgres
       - hivemq
     restart: always
+
+  # Онопрієнко Дмитро — Smart Energy Relational Warehouse
+  relational-warehouse-onopriienko:
+    image: dmytroonopriienkotv51mpkpi/smart-energy-relational-warehouse:v1
+    ports:
+      - "6024:8080"
+    restart: unless-stopped
+    environment:
+      # Shared postgres, own schema: Flyway creates "relational_warehouse" and keeps its tables there,
+      # so it never touches tables of other services in the "smartenergy" database.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/smartenergy?currentSchema=relational_warehouse
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: "12345678"
+      SPRING_FLYWAY_SCHEMAS: relational_warehouse
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   # [Початок] Кротенко — Cybersecurity SmartEnergy
 
   cybersecurity-storage-init:

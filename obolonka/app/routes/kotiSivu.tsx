@@ -54,6 +54,12 @@ export default function Home() {
         >
           Document Storage API (Шевченко)
         </NavLink>
+        <NavLink
+          className="font-bold text-sky-800 bg-white px-4 py-2 rounded shadow hover:bg-sky-50 hover:text-sky-600 transition"
+          to="/relational-warehouse-Onopriienko"
+        >
+          Relational Warehouse API (Онопрієнко)
+        </NavLink>
        <NavLink
           className="font-bold hover:text-lime-700 transition"
           to="DataManager_Ryzhenko"

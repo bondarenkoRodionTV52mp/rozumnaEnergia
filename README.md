@@ -41,3 +41,30 @@ Copy-Item .env.example .env
 ```powershell
 docker compose up -d document-storage-api
 ```
+
+---
+
+### ТВ-51мп Онопрієнко Дмитро
+**Smart Energy Relational Warehouse:** REST API для збереження та отримання реляційних даних у PostgreSQL.
+Сервіс написаний на Kotlin + Spring Boot, схема БД версіонується міграціями Flyway.
+
+Сервіс запускається з Docker Hub-образу
+`dmytroonopriienkotv51mpkpi/smart-energy-relational-warehouse:v1` і використовує
+спільний контейнер `postgres` (БД `smartenergy`), але зберігає свої таблиці в
+окремій схемі `relational_warehouse`, яку Flyway створює автоматично під час
+першого запуску. Таблиці інших сервісів у схемі `public` не змінюються.
+
+Запуск модуля (разом з `postgres`):
+
+```powershell
+docker compose up -d relational-warehouse-onopriienko
+```
+
+- Swagger UI: `http://localhost:6024/swagger-ui.html`
+- Специфікація OpenAPI: `http://localhost:6024/v3/api-docs`
+- Сторінка у frontend: `/relational-warehouse-Onopriienko` (вбудовує Swagger UI)
+
+Основні ендпоінти:
+- `POST /api/temp-control/records` — зберегти запис сенсора
+- `GET /api/temp-control/records/latest?sensorId=...` — останній запис сенсора
+- `GET /api/temp-control/records?after=...&before=...` — записи за проміжок часу (ISO-8601)

@@ -12,7 +12,7 @@ export default [
   route("Monitoring_Monastyrnyi/analytics/:type", "routes/Monitoring_Monastyrnyi/components/AnalyticsPage.tsx"),
   route("Monitoring_Monastyrnyi/comparison", "routes/Monitoring_Monastyrnyi/components/ComparisonPage.tsx"),
 
-  route("iot-gateway", "routes/iotGateway/index.jsx"),
+  route("iot-gateway", "routes/iotGateway_Honcharenko/index.jsx"),
 
   route("cybersecurity", "routes/cybersecurity_Krotenko/index.tsx"),
 

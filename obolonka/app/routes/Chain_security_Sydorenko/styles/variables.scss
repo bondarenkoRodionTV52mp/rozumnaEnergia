@@ -1,0 +1,25 @@
+$color-bg: #0a0f1a;
+$color-bg-elevated: #111a2b;
+$color-bg-card: #16233a;
+$color-surface-border: #2a3d5f;
+
+$color-text-primary: #e7efff;
+$color-text-secondary: #9fb3d6;
+$color-text-muted: #6e84ad;
+
+$color-accent: #1fd1a5;
+$color-accent-strong: #00b88f;
+$color-info: #5ab0ff;
+$color-warning: #ffc857;
+$color-danger: #ff5d73;
+
+$shadow-panel: 0 12px 30px rgba(2, 9, 20, 0.35);
+$shadow-warning:
+  0 0 0 1px rgba(255, 93, 115, 0.35),
+  0 12px 28px rgba(255, 93, 115, 0.2);
+
+$radius-md: 12px;
+$radius-lg: 16px;
+
+$font-primary: "Space Grotesk", "Segoe UI", sans-serif;
+$font-mono: "JetBrains Mono", "Consolas", monospace;

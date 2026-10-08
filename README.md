@@ -16,3 +16,73 @@
 **HeatFlow:** "Інструментальні засоби розрахунків схем тепловодопостачання приміщень SmartEnergy Lab"
 
 ---
+
+### ТВ-52 Шевченко Олександр
+**Document Storage API:** уніфікований REST API для збереження документів,
+телеметрії, конфігурацій та результатів моделювання.
+
+Сервіс запускається з Docker Hub-образу
+`tv52mpshevchenkoo/smartenergy-docs-storage:latest` разом з ізольованими
+MongoDB і Redis. Swagger UI після запуску доступний на
+`http://localhost:6066/docs`, health check — на
+`http://localhost:6066/api/v1/health`. У frontend також є сторінка
+`/docs-storage-ShevchenkoO`, яка вбудовує Swagger UI.
+
+Перед першим запуском скопіюйте `.env.example` до `.env` і вкажіть значення,
+що містять щонайменше 32 символи для `DOCUMENT_STORAGE_SECRET_KEY` та
+щонайменше 12 символів для `DOCUMENT_STORAGE_ADMIN_PASSWORD`:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Після цього запустіть модуль:
+
+```powershell
+docker compose up -d document-storage-api
+```
+
+---
+
+### ТВ-51мп Онопрієнко Дмитро
+**Smart Energy Relational Warehouse:** REST API для збереження та отримання реляційних даних у PostgreSQL.
+Сервіс написаний на Kotlin + Spring Boot, схема БД версіонується міграціями Flyway.
+
+Сервіс запускається з Docker Hub-образу
+`dmytroonopriienkotv51mpkpi/smart-energy-relational-warehouse:v1` і використовує
+спільний контейнер `postgres` (БД `smartenergy`), але зберігає свої таблиці в
+окремій схемі `relational_warehouse`, яку Flyway створює автоматично під час
+першого запуску. Таблиці інших сервісів у схемі `public` не змінюються.
+
+Запуск модуля (разом з `postgres`):
+
+```powershell
+docker compose up -d relational-warehouse-onopriienko
+```
+
+- Swagger UI: `http://localhost:6024/swagger-ui.html`
+- Специфікація OpenAPI: `http://localhost:6024/v3/api-docs`
+- Сторінка у frontend: `/relational-warehouse-Onopriienko` (вбудовує Swagger UI)
+
+Основні ендпоінти:
+- `POST /api/temp-control/records` — зберегти запис сенсора
+- `GET /api/temp-control/records/latest?sensorId=...` — останній запис сенсора
+- `GET /api/temp-control/records?after=...&before=...` — записи за проміжок часу (ISO-8601)
+
+---
+
+### ТВ-52мп Стельмах Дмитро
+**Zero Trust контроль доступу:** багаторівнева адаптивна автентифікація (пароль + аналіз контексту → TOTP → пасивна поведінкова біометрія → email-код) і авторизація операцій лабораторії за RBAC з токенами делегування та порогами trust score.
+
+Бекенд — Python/FastAPI, власні PostgreSQL і Redis в ізольованій мережі `zt-stelmakh`, моделі scikit-learn (One-Class SVM, Isolation Forest, Z-score).
+Образ: `dimonstelmakh/smartenergy-zt-access:latest`. Код: https://github.com/DimonStelmakh/MastersDiplomaWork
+
+Перед першим запуском заповніть у `.env` змінні `ZT_STELMAKH_*` (див. `.env.example`), потім:
+
+```powershell
+docker compose up -d zt-access-stelmakh
+```
+
+- Сторінка у frontend: `/zero-trust-Stelmakh`
+- Swagger UI: `http://localhost:6021/docs`, health check: `http://localhost:6021/health`
+- Під час першого старту створюється довідник операцій і суперадміністратор (`ZT_STELMAKH_ADMIN_*`).

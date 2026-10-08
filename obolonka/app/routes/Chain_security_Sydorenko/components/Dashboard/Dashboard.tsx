@@ -11,7 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import clsx from "clsx";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   AlertTriangle,
   Database,
@@ -55,6 +55,13 @@ export function Dashboard() {
     isolateCompromisedData,
     acknowledgeAnomaly,
   } = useTelemetry();
+
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const unacknowledgedCount = anomalyLog.filter(
     (anomaly) => !anomaly.acknowledged,
   ).length;
@@ -81,6 +88,8 @@ export function Dashboard() {
       : snapshotDataKey === "power"
         ? "#ffc857"
         : "#5ab0ff";
+  
+  if (!isMounted) return <main className={styles.dashboard} />;
 
   return (
     <main className={styles.dashboard}>

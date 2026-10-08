@@ -164,9 +164,26 @@ docker compose up -d relational-warehouse-onopriienko
 docker compose up -d zt-access-stelmakh
 ```
 
-- Swagger UI: [http://localhost:6021/docs](http://localhost:6021/docs)
-- Health check: [http://localhost:6021/health](http://localhost:6021/health)
-- Сторінка оболонки: `/zero-trust-Stelmakh`
+- Сторінка у frontend: `/zero-trust-Stelmakh`
+- Swagger UI: `http://localhost:6021/docs`, health check: `http://localhost:6021/health`
+- Під час першого старту створюється довідник операцій і суперадміністратор (`ZT_STELMAKH_ADMIN_*`).
+
+### ТВ-52мп Сидоренко Дар'я
+**SmartEnergy Security Dashboard:** Моніторинг функціональної стійкості програмного комплексу SmartEnergy із використанням блокчейн-технологій. 
+
+Модуль фіксує енергетичні показники (напруга, струм, потужність) у незмінному криптографічному реєстрі Hyperledger Fabric, забезпечуючи захист від підміни даних у БД (Data Tampering) та виявлення фізичних/кібераномалій (FDIA) у реальному часі.
+
+Бекенд написаний на Python, використовує власну ізольовану БД PostgreSQL та складається з двох сервісів: REST API для перевірки цілісності та симулятора IoT-телеметрії (генератора атак). 
+Образ бекенду: `dariasydorenko22/smartenergy-backend:v1`.
+
+Запуск модуля (включає базу даних, API та генератор трафіку):
+
+```powershell
+docker compose up -d sydorenko-db sydorenko-api sydorenko-generator
+```
+
+- Сторінка у frontend (Панель безпеки): /Chain_security_Sydorenko
+- Локальний API бекенду: http://localhost:6009
 
 ## Контакт
 

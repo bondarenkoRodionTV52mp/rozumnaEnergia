@@ -43,6 +43,10 @@ export default [
     "DataManager_Ryzhenko",
     "routes/DataManager_Ryzhenko/App.jsx"
   ),
+  route(
+    "DataManager_Ryzhenko/api/:service/*",
+    "routes/DataManager_Ryzhenko/ApiProxy.js"
+  ),
 
   route("effective-use", "routes/effectiveUse/App.tsx", [
     route("", "routes/effectiveUse/pages/RealtimePage.tsx"),

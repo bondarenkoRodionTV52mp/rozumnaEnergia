@@ -1,100 +1,128 @@
 import { API_CONFIG } from "./config";
 
-const BASE_URL = API_CONFIG.relational;
+const recordsPath = "/api/temp-control/records";
 
-// Отримати список доступних таблиць
-export async function getRelationalTables() {
-  const response = await fetch(`${BASE_URL}/tables`);
-
-  if (!response.ok) {
-    throw new Error("Не вдалося отримати список таблиць");
+export class RelationalApiError extends Error {
+  constructor(message, status = 0) {
+    super(message);
+    this.name = "RelationalApiError";
+    this.status = status;
   }
-
-  return response.json();
 }
 
-// Отримати дані вибраної таблиці
-export async function getRelationalTableData(tableName) {
-  const response = await fetch(`${BASE_URL}/tables/${tableName}`);
-
-  if (!response.ok) {
-    throw new Error(
-      `Не вдалося отримати дані таблиці "${tableName}"`
-    );
-  }
-
-  return response.json();
+function isSensorId(value) {
+  return Number.isInteger(value) && value >= -2147483648 && value <= 2147483647;
 }
 
-// Отримати один запис
-export async function getRelationalRecord(tableName, id) {
-  const response = await fetch(
-    `${BASE_URL}/tables/${tableName}/${id}`
-  );
-
-  if (!response.ok) {
-    throw new Error("Не вдалося отримати запис");
+function timestamp(value) {
+  if (typeof value !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) {
+    throw new Error("Укажіть дату й час у форматі ISO 8601 із часовим поясом");
   }
-
-  return response.json();
+  const date = new Date(value);
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  if (!Number.isFinite(date.getTime()) || month < 1 || month > 12 || day < 1 || day > daysInMonth) {
+    throw new Error("Укажіть коректну дату й час");
+  }
+  return date.toISOString();
 }
 
-// Створити новий запис
-export async function createRelationalRecord(tableName, data) {
-  const response = await fetch(
-    `${BASE_URL}/tables/${tableName}`,
-    {
-      method: "POST",
+function record(result) {
+  if (!result || typeof result !== "object" || Array.isArray(result) ||
+    !Number.isInteger(result.id) || !isSensorId(result.sensorId) ||
+    result.parameter !== "TEMPERATURE" ||
+    typeof result.value !== "number" || !Number.isFinite(result.value)) {
+    throw new RelationalApiError("API повернув некоректний запис вимірювання");
+  }
+  try {
+    timestamp(result.timestamp);
+  } catch {
+    throw new RelationalApiError("API повернув некоректний час вимірювання");
+  }
+  return result;
+}
+
+async function request(path, { signal, body } = {}) {
+  signal?.throwIfAborted();
+  if (!API_CONFIG.relational) {
+    throw new RelationalApiError("Налаштуйте адресу VITE_RELATIONAL_API_URL для реляційного API");
+  }
+  let response;
+  try {
+    response = await fetch(`${API_CONFIG.relational.replace(/\/+$/, "")}${path}`, {
+      method: body === undefined ? "GET" : "POST",
+      signal,
       headers: {
-        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
       },
-      body: JSON.stringify(data),
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error("Не вдалося створити запис");
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  } catch (error) {
+    signal?.throwIfAborted();
+    if (error.name === "AbortError") throw error;
+    throw new RelationalApiError("Не вдалося з’єднатися з реляційним API. Перевірте адресу та доступність сервера.");
   }
-
-  return response.json();
+  signal?.throwIfAborted();
+  if (!response.ok) {
+    let message = response.status === 400
+      ? "API відхилив параметри запиту або дані вимірювання"
+      : response.status === 404
+        ? "Вимірювання не знайдено"
+        : `Помилка реляційного API (${response.status})`;
+    try {
+      const error = await response.json();
+      if (typeof error.detail === "string") message = error.detail;
+      else if (typeof error.message === "string") message = error.message;
+    } catch {
+    }
+    signal?.throwIfAborted();
+    throw new RelationalApiError(message, response.status);
+  }
+  let result;
+  try {
+    result = await response.json();
+  } catch {
+    signal?.throwIfAborted();
+    throw new RelationalApiError("API повернув відповідь у некоректному форматі JSON", response.status);
+  }
+  signal?.throwIfAborted();
+  return result;
 }
 
-// Оновити запис
-export async function updateRelationalRecord(
-  tableName,
-  id,
-  updatedData
-) {
-  const response = await fetch(
-    `${BASE_URL}/tables/${tableName}/${id}`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(updatedData),
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error("Не вдалося оновити запис");
+export async function getTemperatureRecords({ after, before, signal } = {}) {
+  const start = timestamp(after);
+  const end = timestamp(before);
+  if (new Date(start) >= new Date(end)) {
+    throw new Error("Початок діапазону має бути раніше за його завершення");
   }
-
-  return response.json();
+  const params = new URLSearchParams({ after: start, before: end });
+  const result = await request(`${recordsPath}?${params}`, { signal });
+  if (!Array.isArray(result)) {
+    throw new RelationalApiError("API повернув некоректний список вимірювань");
+  }
+  return result.map(record);
 }
 
-// Видалити запис
-export async function deleteRelationalRecord(tableName, id) {
-  const response = await fetch(
-    `${BASE_URL}/tables/${tableName}/${id}`,
-    {
-      method: "DELETE",
-    }
-  );
+export async function getLatestTemperatureRecord(sensorId, { signal } = {}) {
+  if (!isSensorId(sensorId)) throw new Error("ID датчика має бути цілим числом у межах int32");
+  const params = new URLSearchParams({ sensorId: String(sensorId) });
+  return record(await request(`${recordsPath}/latest?${params}`, { signal }));
+}
 
-  if (!response.ok) {
-    throw new Error("Не вдалося видалити запис");
+export async function createTemperatureRecord(data, { signal } = {}) {
+  if (!data || !isSensorId(data.sensorId)) throw new Error("ID датчика має бути цілим числом у межах int32");
+  if (data.parameter !== "TEMPERATURE") throw new Error("Підтримується лише параметр TEMPERATURE");
+  if (typeof data.value !== "number" || !Number.isFinite(data.value)) {
+    throw new Error("Значення вимірювання має бути скінченним числом");
   }
-
-  return response.json();
+  const payload = {
+    sensorId: data.sensorId,
+    parameter: "TEMPERATURE",
+    value: data.value,
+    timestamp: timestamp(data.timestamp),
+  };
+  const result = await request(recordsPath, { signal, body: payload });
+  return record(result?.record);
 }

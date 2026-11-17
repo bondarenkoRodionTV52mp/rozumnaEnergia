@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -14,12 +14,7 @@ import api from "./services/api";
 
 ChartJS.register(LineElement, CategoryScale, LinearScale, PointElement, Tooltip, Legend, Filler);
 
-const METRICS = {
-  U: { label: "Напруга", unit: "В", color: "#2563eb", bg: "rgba(37,99,235,0.1)" },
-  I: { label: "Струм", unit: "А", color: "#d97706", bg: "rgba(217,119,6,0.1)" },
-  P: { label: "Потужність", unit: "Вт", color: "#0d9488", bg: "rgba(13,148,136,0.1)" },
-  T: { label: "Температура", unit: "°C", color: "#dc2626", bg: "rgba(220,38,38,0.1)" },
-};
+const ACTIVE_WINDOW_MS = 15000;
 
 const EVENT_FILTERS = [
   ["all", "Усі"],
@@ -27,14 +22,85 @@ const EVENT_FILTERS = [
   ["rejected", "Відхилені"],
 ];
 
-function StatTile({ label, value, unit }) {
+const METER_PROFILE = {
+  id: "power-meter",
+  title: "Лічильник електроенергії",
+  fields: [
+    { name: "voltage", label: "Напруга", unit: "В", state: false },
+    { name: "current", label: "Струм", unit: "А", state: false },
+    { name: "power", label: "Потужність", unit: "Вт", state: false },
+    { name: "temperature", label: "Температура", unit: "°C", state: false },
+  ],
+};
+
+function fromLegacy(status, telemetry, events) {
+  const ids = new Set(status.connectedDevices);
+  telemetry.forEach((p) => ids.add(p.device));
+  const devices = [...ids].map((id) => {
+    const own = telemetry.filter((p) => p.device === id);
+    const ownEvents = events.filter((e) => e.device === id);
+    return {
+      id,
+      profile: METER_PROFILE.id,
+      accepted: ownEvents.filter((e) => e.status === "accepted").length,
+      rejected: ownEvents.filter((e) => e.status === "rejected").length,
+      lastSeen: own.length ? own[own.length - 1].t : 0,
+    };
+  });
+  const readings = telemetry.map((p) => ({
+    t: p.t,
+    device: p.device,
+    profile: METER_PROFILE.id,
+    seq: p.seq,
+    values: { voltage: p.U, current: p.I, power: p.P, temperature: p.T },
+  }));
+  return { devices, readings, profiles: [METER_PROFILE] };
+}
+
+function formatNumber(v) {
+  if (Number.isInteger(v)) return String(v);
+  return Math.abs(v) >= 100 ? v.toFixed(1) : v.toFixed(2);
+}
+
+function ago(ms) {
+  if (!ms) return "ще не виходив на зв'язок";
+  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+  return s < 60 ? `${s} с тому` : `${Math.round(s / 60)} хв тому`;
+}
+
+function isActive(device) {
+  return device.lastSeen > 0 && Date.now() - device.lastSeen < ACTIVE_WINDOW_MS;
+}
+
+function StatTile({ label, children }) {
   return (
     <div className="bg-white rounded-lg shadow p-4 text-center">
       <div className="text-sm text-gray-500">{label}</div>
-      <div className="text-2xl font-bold text-gray-800">
-        {value} <span className="text-base font-normal text-gray-400">{unit}</span>
-      </div>
+      <div className="text-2xl font-bold text-gray-800">{children}</div>
     </div>
+  );
+}
+
+function DeviceCard({ device, profile, selected, onSelect }) {
+  return (
+    <button
+      onClick={onSelect}
+      className={`text-left bg-white rounded-lg shadow p-3 border-2 ${
+        selected ? "border-gray-800" : "border-transparent hover:border-gray-300"
+      }`}
+    >
+      <div className="flex items-center gap-2 font-semibold text-gray-800 text-sm">
+        <span className={`w-2.5 h-2.5 rounded-full ${isActive(device) ? "bg-emerald-500" : "bg-gray-300"}`} />
+        {device.id}
+      </div>
+      <div className="text-xs text-gray-500 mt-1">
+        {profile ? profile.title : device.profile} · {ago(device.lastSeen)}
+      </div>
+      <div className="text-xs mt-2">
+        <span className="text-emerald-600 mr-3">прийнято {device.accepted}</span>
+        <span className="text-red-600">відхилено {device.rejected}</span>
+      </div>
+    </button>
   );
 }
 
@@ -69,27 +135,53 @@ function downloadBlob(content, type, filename) {
 }
 
 export default function TelemetrySecurity() {
-  const [status, setStatus] = useState({ connectedDevices: [], totalAccepted: 0, totalRejected: 0 });
-  const [telemetry, setTelemetry] = useState([]);
+  const [status, setStatus] = useState({ totalAccepted: 0, totalRejected: 0 });
+  const [devices, setDevices] = useState([]);
+  const [readings, setReadings] = useState([]);
   const [events, setEvents] = useState([]);
+  const [profiles, setProfiles] = useState({});
   const [connected, setConnected] = useState(false);
+  const [selectedDevice, setSelectedDevice] = useState(null);
+  const [selectedField, setSelectedField] = useState(null);
   const [eventFilter, setEventFilter] = useState("all");
-  const [chartMetric, setChartMetric] = useState("P");
   const [resetting, setResetting] = useState(false);
+  const profilesLoaded = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
 
     async function poll() {
       try {
-        const [s, t, e] = await Promise.all([
+        const [s, e] = await Promise.all([
           api.get("/status").then((r) => r.data),
-          api.get("/telemetry").then((r) => r.data),
           api.get("/events").then((r) => r.data),
         ]);
+        let view;
+        let legacy = false;
+        try {
+          const [d, r] = await Promise.all([
+            api.get("/devices").then((x) => x.data),
+            api.get("/readings").then((x) => x.data),
+          ]);
+          view = { devices: d, readings: r, profiles: null };
+          if (!profilesLoaded.current) {
+            view.profiles = await api.get("/profiles").then((x) => x.data);
+          }
+        } catch (err) {
+          if (!err.response || err.response.status !== 404) throw err;
+          const t = await api.get("/telemetry").then((x) => x.data);
+          view = fromLegacy(s, t, e);
+          profilesLoaded.current = false;
+          legacy = true;
+        }
         if (cancelled) return;
+        if (view.profiles) {
+          setProfiles(Object.fromEntries(view.profiles.map((p) => [p.id, p])));
+          profilesLoaded.current = !legacy;
+        }
         setStatus(s);
-        setTelemetry(t);
+        setDevices(view.devices);
+        setReadings(view.readings);
         setEvents(e);
         setConnected(true);
       } catch {
@@ -135,18 +227,29 @@ export default function TelemetrySecurity() {
     }
   }
 
-  const last = telemetry[telemetry.length - 1];
-  const metric = METRICS[chartMetric];
+  const activeDeviceId = devices.some((d) => d.id === selectedDevice)
+    ? selectedDevice
+    : (devices.find((d) => readings.some((p) => p.device === d.id)) || devices[0] || {}).id || null;
+  const device = devices.find((d) => d.id === activeDeviceId) || null;
+  const profile = device ? profiles[device.profile] || (device.profile === METER_PROFILE.id ? METER_PROFILE : null) : null;
+  const points = device ? readings.filter((p) => p.device === device.id) : [];
+  const last = points.length ? points[points.length - 1].values : null;
+  const field =
+    profile && profile.fields.length
+      ? profile.fields.find((f) => f.name === selectedField) || profile.fields[0]
+      : null;
   const filteredEvents = events.filter((e) => eventFilter === "all" || e.status === eventFilter);
 
+  const chartTitle = field ? field.label + (field.unit ? `, ${field.unit}` : "") : "";
   const chartData = {
-    labels: telemetry.map((p) => new Date(p.t).toLocaleTimeString("uk-UA")),
+    labels: points.map((p) => new Date(p.t).toLocaleTimeString("uk-UA")),
     datasets: [
       {
-        label: `${metric.label} (${metric.unit})`,
-        data: telemetry.map((p) => p[chartMetric]),
-        borderColor: metric.color,
-        backgroundColor: metric.bg,
+        label: chartTitle,
+        data: field ? points.map((p) => p.values[field.name]) : [],
+        borderColor: "#0d9488",
+        backgroundColor: "rgba(13,148,136,0.1)",
+        stepped: field ? field.state : false,
         tension: 0.25,
         fill: true,
         pointRadius: 0,
@@ -167,7 +270,10 @@ export default function TelemetrySecurity() {
           {connected ? "Підключено до шлюзу" : "Немає з'єднання з шлюзом"}
         </div>
         <div className="bg-white rounded-full shadow px-4 py-1.5 text-sm">
-          Пристрої: <strong>{status.connectedDevices.length}</strong>
+          Пристрої: <strong>{devices.length}</strong>
+        </div>
+        <div className="bg-white rounded-full shadow px-4 py-1.5 text-sm">
+          Активні: <strong>{devices.filter(isActive).length}</strong>
         </div>
         <div className="bg-white rounded-full shadow px-4 py-1.5 text-sm">
           Прийнято: <strong className="text-emerald-600">{status.totalAccepted}</strong>
@@ -184,30 +290,61 @@ export default function TelemetrySecurity() {
         </button>
       </div>
 
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        {devices.length === 0 ? (
+          <div className="text-gray-400 text-sm col-span-full">Немає зареєстрованих пристроїв</div>
+        ) : (
+          devices.map((d) => (
+            <DeviceCard
+              key={d.id}
+              device={d}
+              profile={profiles[d.profile] || (d.profile === METER_PROFILE.id ? METER_PROFILE : null)}
+              selected={d.id === activeDeviceId}
+              onSelect={() => {
+                setSelectedDevice(d.id);
+                setSelectedField(null);
+              }}
+            />
+          ))
+        )}
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatTile label="Напруга" value={last ? last.U.toFixed(1) : "—"} unit="В" />
-        <StatTile label="Струм" value={last ? last.I.toFixed(2) : "—"} unit="А" />
-        <StatTile label="Потужність" value={last ? last.P.toFixed(1) : "—"} unit="Вт" />
-        <StatTile label="Температура" value={last ? last.T.toFixed(1) : "—"} unit="°C" />
+        {(profile ? profile.fields : []).map((f) => {
+          const v = last ? last[f.name] : undefined;
+          return (
+            <StatTile key={f.name} label={f.label}>
+              {v === undefined ? (
+                "—"
+              ) : f.state ? (
+                <span className={v >= 0.5 ? "text-emerald-600" : "text-gray-500"}>{v >= 0.5 ? f.on : f.off}</span>
+              ) : (
+                <>
+                  {formatNumber(v)} <span className="text-base font-normal text-gray-400">{f.unit}</span>
+                </>
+              )}
+            </StatTile>
+          );
+        })}
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
         <div className="bg-white rounded-lg shadow p-4">
           <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-            <h2 className="font-semibold text-gray-700">{metric.label} у часі</h2>
-            <div className="flex gap-1">
-              {Object.entries(METRICS).map(([key, m]) => (
-                <button
-                  key={key}
-                  onClick={() => setChartMetric(key)}
-                  className={`px-2 py-1 text-xs rounded ${
-                    chartMetric === key ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
+            <h2 className="font-semibold text-gray-700">{chartTitle ? `${chartTitle} у часі` : "Графік"}</h2>
+            {profile && (
+              <select
+                value={field ? field.name : ""}
+                onChange={(e) => setSelectedField(e.target.value)}
+                className="text-xs rounded bg-gray-100 text-gray-700 px-2 py-1"
+              >
+                {profile.fields.map((f) => (
+                  <option key={f.name} value={f.name}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           <div className="h-64">
             <Line data={chartData} options={{ animation: false, responsive: true, maintainAspectRatio: false }} />

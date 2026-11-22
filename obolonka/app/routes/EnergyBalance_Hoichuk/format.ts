@@ -15,6 +15,22 @@ export function formatDateTime(iso: string): string {
   });
 }
 
+/** Дата й час із секундами — для «живих» показників. */
+export function formatDateTimeSeconds(iso: string): string {
+  return new Date(iso).toLocaleString("uk-UA", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+export function formatShortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("uk-UA", { day: "2-digit", month: "2-digit" });
+}
+
 export function formatShortTime(iso: string, withDate = false): string {
   return new Date(iso).toLocaleString("uk-UA", {
     ...(withDate ? { day: "2-digit", month: "2-digit" } : {}),

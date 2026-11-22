@@ -1,6 +1,6 @@
 import { getCurrent, getLive } from "../api";
 import { ACCENT, ErrorAlert, PageHeader, Spinner, StatCard } from "../components/ui";
-import { describeBatteryAction, describeGrid, formatDateTime, formatNumber } from "../format";
+import { describeBatteryAction, describeGrid, formatDateTimeSeconds, formatNumber } from "../format";
 import { usePolling } from "../hooks";
 import { LIVE_POLL_MS } from "../local_consts";
 
@@ -20,7 +20,7 @@ export default function CurrentPage() {
 
   return (
     <>
-      <PageHeader title="Поточний стан системи" subtitle={`Показники на ${formatDateTime(current.timestamp)}`} />
+      <PageHeader title="Поточний стан системи" subtitle={`Показники на ${formatDateTimeSeconds(current.timestamp)}`} />
       <ErrorAlert message={error} />
       {current.low_battery && (
         <div className="alert alert-warning" role="alert">

@@ -3,7 +3,7 @@ import { Line } from "react-chartjs-2";
 import { getAccuracy, getAnalytics, getForecast } from "../api";
 import { baseLineOptions, COLORS } from "../components/chartSetup";
 import { ACCENT, ChartCard, ErrorAlert, PageHeader, Spinner, StatCard } from "../components/ui";
-import { formatNumber, formatShortTime } from "../format";
+import { formatNumber, formatShortDate, formatShortTime } from "../format";
 import { useLoad } from "../hooks";
 import type { ForecastPeriod, HistoryPeriod } from "../types";
 
@@ -28,14 +28,15 @@ export default function AnalyticsPage() {
   const [historyPeriod, setHistoryPeriod] = useState<HistoryPeriod>("7d");
   const [forecastPeriod, setForecastPeriod] = useState<ForecastPeriod>("day");
 
-  const accuracy = useLoad(getAccuracy, []);
+  // Точність перераховується на бекенді щоразу, коли змінюється період прогнозу
+  const accuracy = useLoad(() => getAccuracy(forecastPeriod), [forecastPeriod]);
   const analytics = useLoad(() => getAnalytics(historyPeriod), [historyPeriod]);
   const forecast = useLoad(() => getForecast(forecastPeriod), [forecastPeriod]);
 
   // Для довгих періодів показуємо середні за добу, щоб графіки лишались читабельними
   const useDaily = historyPeriod === "30d" || historyPeriod === "all";
   const history = analytics.data ? (useDaily ? analytics.data.daily_history : analytics.data.hourly_history) : [];
-  const historyLabels = history.map((r) => formatShortTime(r.timestamp, true));
+  const historyLabels = history.map((r) => (useDaily ? formatShortDate(r.timestamp) : formatShortTime(r.timestamp, true)));
   const forecastRecords = forecast.data?.records ?? [];
   const forecastLabels = forecastRecords.map((r) => formatShortTime(r.timestamp, true));
   const stats = analytics.data?.stats;
@@ -68,9 +69,17 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
+      <ErrorAlert message={forecast.error} />
       <h2 className="eb-section-title">Точність прогнозування</h2>
+      <p className="text-muted small mb-2">
+        {accuracy.loading
+          ? "Розрахунок точності для обраного періоду…"
+          : accuracy.data
+            ? `Модель перевірена на останніх ${accuracy.data.holdout_hours} год історії, яких вона не бачила під час навчання.`
+            : ""}
+      </p>
       <ErrorAlert message={accuracy.error} />
-      <div className="row g-3 mb-4">
+      <div className="row g-3 mb-4" style={{ opacity: accuracy.loading ? 0.5 : 1 }}>
         <div className="col-12 col-md-4"><StatCard label="Сонячна генерація (R²)" value={formatNumber(accuracy.data?.solar_power)} unit="%" accent={ACCENT.solar} icon="☀️" /></div>
         <div className="col-12 col-md-4"><StatCard label="Вітрова генерація (R²)" value={formatNumber(accuracy.data?.wind_power)} unit="%" accent={ACCENT.wind} icon="💨" /></div>
         <div className="col-12 col-md-4"><StatCard label="Споживання (R²)" value={formatNumber(accuracy.data?.consumption)} unit="%" accent={ACCENT.load} icon="🏠" /></div>
@@ -92,7 +101,7 @@ export default function AnalyticsPage() {
 
       <div className="row g-3">
         <div className="col-12 col-xl-6">
-          <ChartCard title={`Історія генерації, Вт (${useDaily ? "середнє за добу" : "середнє за годину"})`}>
+          <ChartCard title={`Історія генерації, Вт (${useDaily ? "середнє за добу, лише повні доби" : "середнє за годину"})`}>
             <Line options={baseLineOptions} data={{ labels: historyLabels, datasets: [
               dataset("Сонячна", history.map((r) => r.solar_power), COLORS.solar),
               dataset("Вітрова", history.map((r) => r.wind_power), COLORS.wind),
@@ -122,7 +131,6 @@ export default function AnalyticsPage() {
           </ChartCard>
         </div>
       </div>
-      <ErrorAlert message={forecast.error} />
     </>
   );
 }

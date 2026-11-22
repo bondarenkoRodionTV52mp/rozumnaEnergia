@@ -61,7 +61,14 @@ export interface ForecastResponse {
   records: ForecastRecord[];
 }
 
-export type Accuracy = Record<"solar_power" | "wind_power" | "consumption", number | null>;
+export interface Accuracy {
+  period: ForecastPeriod;
+  /** Скільки останніх годин історії використано для перевірки */
+  holdout_hours: number;
+  solar_power: number;
+  wind_power: number;
+  consumption: number;
+}
 
 export interface Settings {
   battery_capacity: number;

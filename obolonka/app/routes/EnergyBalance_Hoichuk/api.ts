@@ -12,7 +12,7 @@ import type {
   Settings,
 } from "./types";
 
-const api = axios.create({ baseURL: ENERGY_API_URL, timeout: 15000 });
+const api = axios.create({ baseURL: ENERGY_API_URL, timeout: 30000 });
 
 export const getCurrent = () => api.get<CurrentData>("/current").then((r) => r.data);
 
@@ -30,7 +30,8 @@ export const getAnalytics = (period: HistoryPeriod) =>
 export const getForecast = (period: ForecastPeriod) =>
   api.get<ForecastResponse>("/forecast", { params: { period } }).then((r) => r.data);
 
-export const getAccuracy = () => api.get<Accuracy>("/accuracy").then((r) => r.data);
+export const getAccuracy = (period: ForecastPeriod) =>
+  api.get<Accuracy>("/accuracy", { params: { period } }).then((r) => r.data);
 
 export const getSettings = () => api.get<Settings>("/settings").then((r) => r.data);
 
